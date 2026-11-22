@@ -1,6 +1,7 @@
-# Radar de Renta Variable
+# Radar de inversión
 
-App web (Streamlit) que:
+App web (Streamlit) para acciones de EE.UU., Colombia (BVC) y Latinoamérica, y para las criptos principales
+(BTC, ETH, SOL, XRP). Está pensada para cualquier persona: lenguaje sencillo, recorrido en 3 pasos y explicaciones en cada pantalla.
 
 1. **Busca oportunidades**: descarga de Yahoo Finance precios y fundamentales de un universo de acciones
    (listas predefinidas, tus propios tickers o un screener de Yahoo) y les da un puntaje 0–100 por
@@ -34,11 +35,14 @@ Se abre sola en el navegador en `http://localhost:8501`.
 ## Archivos
 
 - `app.py`: interfaz y descarga de datos (yfinance).
+- `.streamlit/config.toml`: colores de la app (azul noche con cian, rosa y verde neón). **Súbelo también a GitHub** (es una carpeta oculta: en Mac pulsa Cmd+Shift+. para verla).
 - `motor.py`: cálculos puros — puntajes, múltiplos, Ledoit-Wolf, optimización (SciPy SLSQP).
 
 ## Notas
 
-- Tickers en formato Yahoo: acciones de otras bolsas llevan sufijo (`SAP.DE`, `PETR4.SA`, `WALMEX.MX`).
+- Tickers en formato Yahoo: Colombia termina en `.CL` (`GEB.CL`, `CELSIA.CL`), criptos en `-USD` (`ADA-USD`), otras bolsas con su sufijo (`SAP.DE`, `PETR4.SA`).
+- Si Yahoo no tiene datos de una acción colombiana, la app intenta su otro listado (p. ej. Mineros → `MSA.TO` en Toronto, Cibest → `CIB` en Nueva York).
+- Las criptos no tienen puntaje de empresa (no tienen estados financieros), pero sí entran a la optimización y se compran en fracciones.
 - La tasa libre de riesgo por defecto es el T-Bill a 13 semanas (`^IRX`); puedes cambiarla.
 - Los datos se guardan en caché 1 hora; usa “Cargar / actualizar datos” para refrescar.
 - Google Finance no tiene API pública, por eso la fuente es Yahoo Finance.
