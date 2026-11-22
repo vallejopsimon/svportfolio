@@ -87,6 +87,76 @@ div[data-baseweb="tab-highlight"] { background: linear-gradient(90deg, #00E5FF, 
 .stButton > button[kind="primary"]:hover, .stFormSubmitButton > button[kind="primary"]:hover { box-shadow: 0 0 28px rgba(0,229,255,0.6); color:#060B1E; }
 div[data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: visible !important; row-gap: 8px; }
 .pie { color:#8A97B8; font-size:13px; margin-top: 24px; }
+/* ---- Colores forzados: la app se ve igual aunque falte .streamlit/config.toml ---- */
+.stApp, .stApp p, .stApp li, .stApp span, .stApp label, .stApp summary, .stApp small,
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 { color: #E6EEFF; }
+.stApp [data-testid="stCaptionContainer"], .stApp [data-testid="stCaptionContainer"] * { color: #8A97B8; }
+.stApp [data-testid="stMetricLabel"], .stApp [data-testid="stMetricLabel"] * { color: #B9C6E4; }
+.stApp [data-testid="stMetricValue"], .stApp [data-testid="stMetricValue"] * { color: #FFFFFF; }
+.stApp .titulo span { color: transparent; }
+.stApp .fila-b span { color: #B9C6E4; }
+.stApp .badge.b-alta { color: #39FF88; } .stApp .badge.b-media { color: #00E5FF; } .stApp .badge.b-baja { color: #FF6FB5; }
+.stApp button[data-baseweb="tab"] p { color: #8A97B8; }
+.stApp button[data-baseweb="tab"][aria-selected="true"] p { color: #00E5FF; }
+div[data-baseweb="tab-border"] { background-color: rgba(0,229,255,0.15) !important; }
+/* pills y control segmentado */
+.stApp button[data-testid="stBaseButton-pills"], .stApp button[data-testid="stBaseButton-segmented_control"] {
+  background: rgba(13,23,53,0.9) !important; border: 1px solid rgba(0,229,255,0.28) !important; }
+.stApp button[data-testid="stBaseButton-pills"] *, .stApp button[data-testid="stBaseButton-segmented_control"] * { color: #E6EEFF !important; }
+.stApp button[data-testid="stBaseButton-pillsActive"], .stApp button[data-testid="stBaseButton-segmented_controlActive"] {
+  background: rgba(0,229,255,0.14) !important; border: 1px solid #00E5FF !important; box-shadow: 0 0 12px rgba(0,229,255,0.35); }
+.stApp button[data-testid="stBaseButton-pillsActive"] *, .stApp button[data-testid="stBaseButton-segmented_controlActive"] * { color: #00E5FF !important; }
+/* radio */
+.stApp [data-testid="stRadioOption"] > div > div:first-child { background-color: #0D1735 !important; border: 2px solid rgba(0,229,255,0.6) !important; }
+.stApp [data-testid="stRadioOption"] > div > div:first-child > div { background-color: transparent !important; }
+.stApp [data-testid="stRadioOption"][data-selected="true"] > div > div:first-child { border-color: #00E5FF !important; box-shadow: 0 0 10px rgba(0,229,255,0.6); }
+.stApp [data-testid="stRadioOption"][data-selected="true"] > div > div:first-child > div { background-color: #00E5FF !important; }
+/* campos de texto, número y listas */
+.stApp [data-baseweb="input"], .stApp [data-baseweb="base-input"], .stApp [data-baseweb="select"] > div, .stApp textarea, .stApp input {
+  background-color: #0D1735 !important; color: #E6EEFF !important; border-color: rgba(0,229,255,0.28) !important; }
+.stApp input::placeholder, .stApp textarea::placeholder { color: #6F7DA0 !important; }
+.stApp [data-baseweb="select"] svg, .stApp [data-testid="stNumberInput"] button svg { fill: #E6EEFF !important; color: #E6EEFF !important; }
+.stApp [data-testid="stNumberInput"] button { background-color: #13204A !important; }
+.stApp [data-baseweb="tag"] { background-color: rgba(255,46,151,0.16) !important; border: 1px solid rgba(255,46,151,0.55) !important; }
+.stApp [data-baseweb="tag"] * { color: #FFD1E8 !important; }
+div[data-baseweb="popover"] ul, div[data-baseweb="popover"] li, div[data-baseweb="menu"] { background-color: #0D1735 !important; color: #E6EEFF !important; }
+div[data-baseweb="popover"] li:hover, div[data-baseweb="popover"] li[aria-selected="true"] { background-color: rgba(0,229,255,0.14) !important; }
+div[data-baseweb="popover"] * { color: #E6EEFF; }
+/* expanders, formularios y botones secundarios */
+.stApp [data-testid="stExpander"] details { background: rgba(13,23,53,0.7); border: 1px solid rgba(0,229,255,0.22) !important; border-radius: 14px; }
+.stApp [data-testid="stExpander"] summary:hover * { color: #00E5FF; }
+.stApp [data-testid="stForm"] { border: 1px solid rgba(0,229,255,0.22); background: rgba(13,23,53,0.45); border-radius: 18px; }
+.stApp button[data-testid="stBaseButton-secondary"] { background: transparent !important; border: 1px solid rgba(0,229,255,0.4) !important; }
+.stApp button[data-testid="stBaseButton-secondary"] * { color: #E6EEFF !important; }
+.stApp button[data-testid^="stBaseButton-primary"] { background: linear-gradient(90deg, #FF2E97, #00E5FF) !important; border: 0 !important;
+  box-shadow: 0 0 18px rgba(255,46,151,0.45); }
+.stApp button[data-testid^="stBaseButton-primary"] * { color: #060B1E !important; font-weight: 700; }
+.stApp [data-testid="stSlider"] [role="slider"] { background-color: #FF2E97 !important; box-shadow: 0 0 10px rgba(255,46,151,0.7); }
+.stApp [data-testid="stTooltipIcon"] svg { stroke: #8A97B8 !important; }
+.stApp [data-testid="stAlert"] * { color: #E6EEFF; }
+.stApp [data-testid="stCheckbox"] label span:first-child { border-color: #00E5FF !important; }
+/* Streamlit 1.5x+ (react-aria): pills, control segmentado, multiselect y selectbox */
+.stApp button[data-variant="pills"], .stApp button[data-variant="segmented_control"] {
+  background: rgba(13,23,53,0.9) !important; border: 1px solid rgba(0,229,255,0.28) !important; color: #E6EEFF !important; }
+.stApp button[data-variant="pills"] *, .stApp button[data-variant="segmented_control"] * { color: #E6EEFF !important; }
+.stApp button[data-variant="pills"][aria-pressed="true"], .stApp button[data-variant="segmented_control"][aria-checked="true"] {
+  background: rgba(0,229,255,0.14) !important; border: 1px solid #00E5FF !important; box-shadow: 0 0 12px rgba(0,229,255,0.35); }
+.stApp button[data-variant="pills"][aria-pressed="true"] *, .stApp button[data-variant="segmented_control"][aria-checked="true"] * { color: #00E5FF !important; }
+.stApp [data-testid="stMultiSelect"] [role="group"], .stApp [data-testid="stSelectbox"] [role="group"],
+.stApp [data-testid="stSelectbox"] button, .stApp [data-testid="stMultiSelect"] input {
+  background-color: #0D1735 !important; border-color: rgba(0,229,255,0.28) !important; color: #E6EEFF !important; }
+.stApp [data-testid="stMultiSelectTagsContainer"] [role="group"] { background: transparent !important; }
+.stApp [data-testid="stMultiSelectTagsContainer"] > span > span { background-color: rgba(255,46,151,0.16) !important;
+  border: 1px solid rgba(255,46,151,0.55) !important; }
+.stApp [data-testid="stMultiSelectTagsContainer"] > span > span * { color: #FFD1E8 !important; }
+[role="listbox"], [role="option"] { background-color: #0D1735 !important; color: #E6EEFF !important; }
+[role="option"]:hover, [role="option"][aria-selected="true"], [role="option"][data-focused="true"] { background-color: rgba(0,229,255,0.16) !important; }
+[role="listbox"] * { color: #E6EEFF !important; }
+.stApp [data-testid="stTabs"] .react-aria-SelectionIndicator { background: linear-gradient(90deg, #00E5FF, #FF2E97) !important;
+  border-color: transparent !important; box-shadow: 0 0 10px rgba(255,46,151,0.7); }
+.stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"] *, .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] * { color: #00E5FF !important; }
+.stApp [data-testid="stMetricDelta"] { background: rgba(57,255,136,0.10) !important; }
+.stApp [data-testid="stMetricDelta"] * { color: #39FF88 !important; fill: #39FF88 !important; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
 </style>
 """, unsafe_allow_html=True)
@@ -95,8 +165,8 @@ pio.templates["radar"] = go.layout.Template(layout=dict(
     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     font=dict(family="Inter, sans-serif", color=BEIGE, size=13),
     colorway=[ROSA, CIAN, VERDE, "#B26BFF", "#FFD23F", MUTED],
-    xaxis=dict(gridcolor=LINEA, zerolinecolor=LINEA, linecolor=LINEA),
-    yaxis=dict(gridcolor=LINEA, zerolinecolor=LINEA, linecolor=LINEA),
+    xaxis=dict(gridcolor=LINEA, zerolinecolor=LINEA, linecolor=LINEA, automargin=True),
+    yaxis=dict(gridcolor=LINEA, zerolinecolor=LINEA, linecolor=LINEA, automargin=True),
     legend=dict(bgcolor="rgba(0,0,0,0)"), hoverlabel=dict(bgcolor=PANEL, font_color=BEIGE),
     margin=dict(l=10, r=10, t=30, b=10)))
 pio.templates.default = "radar"
@@ -337,7 +407,7 @@ with tab1:
             fig.add_annotation(x=98, y=98, text="Baratas y sólidas", showarrow=False, xanchor="right", font=dict(color=VERDE))
             fig.update_layout(height=460, xaxis=dict(title="Precio atractivo →", range=[0, 102]),
                               yaxis=dict(title="Solidez del negocio →", range=[0, 102]))
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, width="stretch", theme=None)
 
             st.markdown("### Todas las acciones")
             tecnico = st.toggle("Mostrar métricas técnicas (múltiplos y rentabilidades)", False)
@@ -426,8 +496,8 @@ with tab2:
                                        textposition="outside", cliponaxis=False))
                 fig.add_vline(x=fila["Precio"], line_color=BEIGE, line_width=2, line_dash="dot",
                               annotation_text="precio hoy", annotation_font_color=BEIGE)
-                fig.update_layout(height=330, xaxis_title=f"Precio por acción ({fila['Moneda']})", margin=dict(r=80))
-                st.plotly_chart(fig, width="stretch")
+                fig.update_layout(height=330, xaxis_title=f"Precio por acción ({fila['Moneda']})", margin=dict(r=120))
+                st.plotly_chart(fig, width="stretch", theme=None)
                 st.caption("Verde: valdría más que hoy. Rosa: valdría menos. Cada barra usa un múltiplo distinto "
                            "(P/E = precio/utilidad, P/B = precio/patrimonio, P/S = precio/ventas, EV/EBITDA = valor empresa/flujo operativo).")
 
@@ -574,7 +644,7 @@ with tab3:
                                            hovertemplate="%{label}: %{percent}<extra></extra>"))
                     fig.update_layout(height=320, showlegend=False, margin=dict(t=30, b=30, l=40, r=40),
                                       annotations=[dict(text=f"<b>{dinero(o['monto'], mon)}</b>", showarrow=False, font=dict(size=15, color=BEIGE))])
-                    st.plotly_chart(fig, width="stretch", key=f"pie_{nombre}")
+                    st.plotly_chart(fig, width="stretch", theme=None, key=f"pie_{nombre}")
                     m1, m2, m3 = st.columns(3)
                     m1.metric("Rinde al año", f"{r:.1%}", help="Rendimiento anual esperado según los datos históricos.")
                     m2.metric("Altibajos", f"{v:.1%}", help="Volatilidad anual: cuánto puede subir o bajar en un año típico.")
@@ -619,7 +689,7 @@ with tab3:
                                             line=dict(color=NAVY, width=2)))
             fig.update_layout(height=500, xaxis=dict(title="Altibajos al año (volatilidad)", tickformat=".0%"),
                               yaxis=dict(title="Rendimiento esperado al año", tickformat=".0%"), legend=dict(orientation="h", y=-0.18))
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, width="stretch", theme=None)
 
             st.markdown("### ¿Cómo le habría ido a cada portafolio?")
             cum = pd.DataFrame({n: (1 + o["ret"] @ w).cumprod() * 100 for n, w in o["w"].items()})
@@ -631,7 +701,7 @@ with tab3:
                 fig.add_scatter(x=cum.index, y=cum[c], name=c, mode="lines",
                                 line=dict(color=color, width=3 if c in o["w"] else 1.6, dash="solid" if c in o["w"] else "dot"))
             fig.update_layout(height=380, yaxis_title="Valor de cada 100 invertidos", legend=dict(orientation="h", y=-0.18))
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, width="stretch", theme=None)
             st.caption("Ojo: es una mirada al pasado con los mismos datos usados para calcular los pesos, así que se ve mejor de lo que "
                        "probablemente será en el futuro. Rentabilidades pasadas no garantizan rentabilidades futuras.")
 
@@ -643,7 +713,7 @@ with tab3:
                 fig = go.Figure(go.Heatmap(z=corr.values, x=etiquetas, y=etiquetas, zmin=-1, zmax=1, colorscale=ESCALA,
                                            text=np.round(corr.values, 2), texttemplate="%{text}"))
                 fig.update_layout(height=420)
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, width="stretch", theme=None)
             st.caption(f"Riesgo estimado con {o['metodo_cov']}" + (f" (suavizado δ = {o['delta']:.2f})" if o["metodo_cov"] == "Ledoit-Wolf" else "")
                        + f" · rendimiento {o['metodo_mu'].lower()} · máximo {o['cap']:.0%} por activo · tasa libre de riesgo {rf:.2%}.")
 

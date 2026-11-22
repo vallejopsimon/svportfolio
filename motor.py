@@ -40,10 +40,15 @@ def metricas_desde_info(ticker: str, info: dict) -> dict:
     div_rate = g("dividendRate")
     target = g("targetMeanPrice")
     de = g("debtToEquity")
+    es_cripto = info.get("quoteType") == "CRYPTOCURRENCY" or ticker.endswith("-USD")
+    nombre = info.get("shortName") or info.get("longName") or ticker
+    if es_cripto:
+        nombre = nombre.replace(" USD", "")
     return {
         "Ticker": ticker,
-        "Nombre": info.get("shortName") or info.get("longName") or ticker,
-        "Sector": info.get("sector") or "Sin sector",
+        "Tipo": "Cripto" if es_cripto else "Acción",
+        "Nombre": nombre,
+        "Sector": "Cripto" if es_cripto else (info.get("sector") or "Sin sector"),
         "Industria": info.get("industry") or "",
         "Moneda": info.get("currency") or "USD",
         "Precio": precio,
@@ -76,17 +81,26 @@ def metricas_desde_info(ticker: str, info: dict) -> dict:
 
 
 def momentum(precios: pd.DataFrame) -> pd.DataFrame:
-    """Momentum 12-1 (excluye el último mes) y retorno 6 meses."""
+    """Momentum 12-1, retorno 6 meses, volatilidad anual y caída máxima del último año.
+    Usa fechas (no número de filas) para que funcione igual con acciones y criptos."""
     out = {}
     for t in precios.columns:
         s = precios[t].dropna()
-        if len(s) < 130:
-            out[t] = {"Mom. 12-1": np.nan, "Ret. 6m": np.nan}
+        vacio = {"Mom. 12-1": np.nan, "Ret. 6m": np.nan, "Volatilidad": np.nan, "Caída máx. 1a": np.nan}
+        if len(s) < 60:
+            out[t] = vacio
             continue
-        p_1m = s.iloc[-22] if len(s) > 22 else np.nan
-        p_12m = s.iloc[-252] if len(s) >= 252 else s.iloc[0]
-        p_6m = s.iloc[-126]
-        out[t] = {"Mom. 12-1": p_1m / p_12m - 1, "Ret. 6m": s.iloc[-1] / p_6m - 1}
+        fin = s.index[-1]
+        hace = lambda dias: s.asof(fin - pd.Timedelta(days=dias))
+        r = s.pct_change().dropna()
+        anios = max((r.index[-1] - r.index[0]).days / 365.25, 1e-9)
+        s1 = s[s.index >= fin - pd.Timedelta(days=365)]
+        out[t] = {
+            "Mom. 12-1": hace(30) / hace(365) - 1 if s.index[0] <= fin - pd.Timedelta(days=330) else np.nan,
+            "Ret. 6m": s.iloc[-1] / hace(182) - 1 if s.index[0] <= fin - pd.Timedelta(days=175) else np.nan,
+            "Volatilidad": r.std() * np.sqrt(len(r) / anios),
+            "Caída máx. 1a": (s1 / s1.cummax() - 1).min(),
+        }
     return pd.DataFrame(out).T
 
 
@@ -181,9 +195,20 @@ def valoracion_multiplos(df: pd.DataFrame, ticker: str, pares: list[str]) -> pd.
 # 4. Optimización media-varianza
 # ---------------------------------------------------------------------------
 
-def retornos_diarios(precios: pd.DataFrame) -> pd.DataFrame:
-    # ffill para alinear calendarios de distintas bolsas, sin rellenar el inicio
-    return precios.ffill().pct_change(fill_method=None).dropna(how="any")
+def retornos_diarios(precios: pd.DataFrame, cripto: set | None = None) -> pd.DataFrame:
+    """Retornos alineados. Si hay acciones, se usa su calendario (las criptos acumulan el fin
+    de semana en el lunes); si solo hay criptos, se usan todos los días."""
+    cripto = cripto or set()
+    acciones = [c for c in precios.columns if c not in cripto]
+    p = precios.copy()
+    if acciones:
+        p = p[p[acciones].notna().any(axis=1)]
+    return p.ffill().pct_change(fill_method=None).dropna(how="any")
+
+
+def periodos_por_anio(ret: pd.DataFrame) -> float:
+    anios = (ret.index[-1] - ret.index[0]).days / 365.25
+    return len(ret) / anios if anios > 0 else TRADING_DAYS
 
 
 def ledoit_wolf(R: np.ndarray) -> tuple[np.ndarray, float]:
@@ -203,13 +228,14 @@ def ledoit_wolf(R: np.ndarray) -> tuple[np.ndarray, float]:
 
 def estimar_parametros(ret: pd.DataFrame, metodo_cov: str = "Ledoit-Wolf",
                        metodo_mu: str = "Histórica", rf: float = 0.04,
-                       ret_mercado: pd.Series | None = None, prima: float = 0.055):
+                       ret_mercado: pd.Series | None = None, prima: float = 0.055,
+                       periodos: float = TRADING_DAYS):
     R = ret.values
     if metodo_cov == "Ledoit-Wolf":
         cov_d, delta = ledoit_wolf(R)
     else:
         cov_d, delta = np.cov(R, rowvar=False, ddof=1), 0.0
-    cov = pd.DataFrame(np.atleast_2d(cov_d) * TRADING_DAYS, index=ret.columns, columns=ret.columns)
+    cov = pd.DataFrame(np.atleast_2d(cov_d) * periodos, index=ret.columns, columns=ret.columns)
     betas = None
     if ret_mercado is not None:
         m = ret_mercado.reindex(ret.index).ffill().fillna(0)
@@ -217,7 +243,7 @@ def estimar_parametros(ret: pd.DataFrame, metodo_cov: str = "Ledoit-Wolf",
     if metodo_mu == "CAPM" and betas is not None:
         mu = rf + betas * prima
     else:
-        mu = ret.mean() * TRADING_DAYS
+        mu = ret.mean() * periodos
     return mu, cov, delta, betas
 
 
@@ -290,28 +316,36 @@ def frontera(mu, cov, cap=1.0, puntos=40):
     return pd.DataFrame(out, columns=["Volatilidad", "Retorno"])
 
 
-def portafolios_aleatorios(mu, cov, rf, n=3000, seed=7):
+def portafolios_aleatorios(mu, cov, rf, n=3000, seed=7, cap=1.0):
+    """Portafolios al azar que respetan el mismo tope de peso que la optimización."""
     rng = np.random.default_rng(seed)
-    W = rng.dirichlet(np.ones(len(mu)) * 0.6, n)
+    k = len(mu)
+    validos = []
+    for alpha in (0.6, 1.5, 4.0, 12.0):
+        W = rng.dirichlet(np.ones(k) * alpha, n * 8)
+        validos.append(W[W.max(axis=1) <= cap + 1e-9])
+        if sum(len(v) for v in validos) >= n:
+            break
+    W = np.vstack(validos)[:n]
     r = W @ mu.values
     v = np.sqrt(np.einsum("ij,jk,ik->i", W, cov.values, W))
     return pd.DataFrame({"Volatilidad": v, "Retorno": r, "Sharpe": (r - rf) / v})
 
 
 def asignar_monto(pesos: pd.Series, precios: pd.Series, fx: pd.Series, monto: float,
-                  fraccionadas: bool = False) -> pd.DataFrame:
+                  fraccionadas: bool | pd.Series = False) -> pd.DataFrame:
     """Convierte pesos a dinero y número de acciones. fx = moneda inversión por 1 unidad de la moneda del activo."""
     precio_inv = precios * fx
     valor_obj = pesos * monto
     acciones = valor_obj / precio_inv
-    if not fraccionadas:
-        acciones = np.floor(acciones)
+    frac = fraccionadas if isinstance(fraccionadas, pd.Series) else pd.Series(bool(fraccionadas), pesos.index)
+    acciones = acciones.where(frac.reindex(pesos.index).fillna(False).astype(bool), np.floor(acciones))
     valor_real = acciones * precio_inv
     return pd.DataFrame({
         "Peso objetivo": pesos,
         "Monto objetivo": valor_obj,
         "Precio (moneda inversión)": precio_inv,
-        "Acciones": acciones,
+        "Unidades": acciones,
         "Monto invertido": valor_real,
         "Peso real": valor_real / monto,
     })
