@@ -24,165 +24,174 @@ import motor as M
 st.set_page_config(page_title="Radar · Inversión inteligente", page_icon="📡", layout="wide")
 
 # ---------------------------------------------------------------------------
-# Identidad visual: verde bosque + beige arena + morado eléctrico
+# Identidad visual: azul marino + crema + coral
 # ---------------------------------------------------------------------------
-BOSQUE, BOSQUE_OSC, BOSQUE_PANEL = "#1F3D2B", "#15291D", "#264A35"
-ARENA, ARENA_SUAVE, ARENA_TENUE = "#E8DCC4", "#CFC4AC", "#A39C88"
-MORADO, LILA, MORADO_OSC, SALVIA = "#8B5CF6", "#B69CFF", "#6A3FD9", "#86A891"
-LINEA = "rgba(232,220,196,0.12)"
+NAVY_BASE, NAVY_OSC, NAVY_PANEL = "#14213D", "#0E1830", "#1D2E52"
+CREMA, CREMA_SUAVE, CREMA_TENUE = "#F4EDE0", "#D9D2C4", "#9AA3B8"
+CORAL, CORAL_SUAVE, CORAL_OSC, ACERO = "#FF6B5B", "#FF9C8F", "#E04A3A", "#7D9BD1"
+LINEA = "rgba(244,237,224,0.12)"
 # nombres usados en el resto del código
-NAVY, PANEL, MUTED, BEIGE = BOSQUE_OSC, BOSQUE_PANEL, ARENA_TENUE, ARENA
+NAVY, PANEL, MUTED, BEIGE = NAVY_OSC, NAVY_PANEL, CREMA_TENUE, CREMA
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=Inter:wght@400;500;600&display=swap');
 html, body, [class*="css"], .stMarkdown, p, li, label, input, textarea { font-family: 'Inter', sans-serif; }
-h1, h2, h3, h4 { font-family: 'Instrument Sans', sans-serif !important; letter-spacing: -0.02em; }
+h1, h2, h3, h4 { font-family: 'Inter Tight', sans-serif !important; font-weight: 500 !important; letter-spacing: -0.025em; }
 .stApp { background:
-  radial-gradient(1000px 520px at 50% 108%, rgba(139,92,246,0.30), transparent 65%),
-  radial-gradient(700px 420px at 100% 0%, rgba(139,92,246,0.14), transparent 60%),
-  radial-gradient(rgba(232,220,196,0.13) 1px, transparent 1.5px) 0 0 / 24px 24px,
-  linear-gradient(180deg, #1F3D2B 0%, #1A3526 60%, #15291D 100%); background-attachment: fixed; }
+  repeating-linear-gradient(90deg, rgba(244,237,224,0.035) 0 2px, transparent 2px 10px),
+  radial-gradient(520px 620px at 72% 22%, rgba(255,107,91,0.32), transparent 70%),
+  radial-gradient(700px 520px at 12% 30%, rgba(125,155,209,0.22), transparent 70%),
+  linear-gradient(180deg, #1A2B4F 0%, #14213D 45%, #0E1830 100%); background-attachment: fixed; }
 .block-container { padding-top: 1.6rem; max-width: 1280px; }
 
 /* encabezado */
-.hero { position: relative; text-align: center; padding: 34px 24px 30px; margin-bottom: 10px; border-radius: 28px; overflow: hidden;
-  background: radial-gradient(700px 260px at 50% 120%, rgba(139,92,246,0.45), transparent 70%), rgba(21,41,29,0.55);
-  border: 1px solid rgba(232,220,196,0.14); }
-.hero .rutas { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; font-size: 13px; color: #CFC4AC; margin-bottom: 14px; }
-.titulo { font-family: 'Instrument Sans', sans-serif; font-weight: 700; font-size: clamp(36px, 5.2vw, 62px); line-height: 1.04;
-  color: #E8DCC4; margin: 0 0 12px; letter-spacing: -0.03em; }
-.titulo span { color: #8B5CF6; text-shadow: 0 0 28px rgba(139,92,246,0.45); }
-.titulo .chispa { display: inline-grid; place-items: center; width: 0.62em; height: 0.62em; border-radius: 50%; background: #8B5CF6;
-  color: #fff; font-size: 0.4em; vertical-align: 0.28em; margin-right: 0.25em; box-shadow: 0 0 18px rgba(139,92,246,0.7); text-shadow: none; }
-.hero p { color: #E8DCC4; opacity: .82; font-size: 17px; max-width: 640px; margin: 0 auto; }
-.sello { position: absolute; right: 28px; top: 22px; width: 78px; height: 78px; border-radius: 50%; background: #8B5CF6;
-  display: grid; place-items: center; transform: rotate(-14deg); font: 700 12px/1.1 'Instrument Sans', sans-serif; color: #fff;
-  text-align: center; box-shadow: 0 8px 26px rgba(139,92,246,0.55); }
-@media (max-width: 700px) { .sello { display: none; } }
+.hero { position: relative; padding: 26px 30px 0; margin-bottom: 12px; border-radius: 26px; overflow: hidden;
+  border: 1px solid rgba(244,237,224,0.14);
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,0.045) 0 3px, transparent 3px 12px),
+    radial-gradient(420px 320px at 70% 45%, rgba(255,107,91,0.55), transparent 70%),
+    radial-gradient(500px 360px at 20% 30%, rgba(125,155,209,0.35), transparent 70%), #16254A; }
+.hero .rutas { display: inline-flex; gap: 4px; padding: 5px; border-radius: 999px; background: rgba(14,24,48,0.55);
+  border: 1px solid rgba(244,237,224,0.16); font-size: 13px; margin-bottom: 70px; }
+.hero .rutas span { padding: 5px 12px; border-radius: 999px; }
+.hero .rutas span:first-child { background: rgba(244,237,224,0.14); }
+.hero .rutas span:first-child:before { content: "●"; color: #FF6B5B; font-size: 9px; margin-right: 6px; vertical-align: 2px; }
+.titulo { font-family: 'Inter Tight', sans-serif; font-weight: 300; font-size: clamp(40px, 6vw, 76px); line-height: 1.0;
+  color: #F4EDE0; margin: 0 0 14px; letter-spacing: -0.045em; max-width: 820px; }
+.titulo span { font-weight: 500; color: #FF6B5B; }
+.hero p { color: #F4EDE0; opacity: .85; font-size: 16px; max-width: 560px; margin: 0 0 22px; }
+.sello { position: absolute; right: 28px; top: 24px; background: #FF6B5B; color: #fff; border-radius: 999px; padding: 6px 14px;
+  font: 600 12px 'Inter', sans-serif; box-shadow: 0 8px 22px rgba(255,107,91,0.45); }
+.beneficios { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 18px; border-top: 1px solid rgba(244,237,224,0.18);
+  margin: 0 -30px; padding: 16px 30px 18px; background: rgba(14,24,48,0.35); }
+.beneficios div { font-size: 13px; line-height: 1.35; position: relative; padding-top: 4px; }
+.beneficios div:first-child:before { content: ""; position: absolute; top: -17px; left: 0; width: 60%; height: 2px; background: #FF6B5B; }
+.beneficios i { display: block; font-style: normal; font-size: 15px; margin-bottom: 4px; }
+@media (max-width: 760px) { .beneficios { grid-template-columns: repeat(2, minmax(0,1fr)); } .sello { display: none; } .hero .rutas { margin-bottom: 36px; } }
 
-/* tarjetas claras (como en la referencia) */
-.card { background: #F4EEE2; border: 1px solid rgba(31,61,43,0.10); border-radius: 20px; padding: 18px 20px; height: 100%;
-  box-shadow: 0 14px 34px rgba(10,22,15,0.35); transition: transform .2s, box-shadow .2s; }
-.card:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(10,22,15,0.45), 0 0 0 2px rgba(139,92,246,0.35); }
-.stApp .card, .stApp .card p, .stApp .card li, .stApp .card span, .stApp .card h4, .stApp .card b { color: #1F3D2B; }
-.card h4 { margin: 0 0 4px; font-size: 20px; }
-.stApp .card .sub { color: #6B7A6F; font-size: 13px; margin-bottom: 10px; }
-.card .big { font-family: 'Instrument Sans', sans-serif; font-size: 32px; font-weight: 700; }
-.stApp .card .de { color: #8A8F84; font-size: 15px; }
+/* tarjetas de vidrio */
+.card { background: rgba(29,46,82,0.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(244,237,224,0.16); border-radius: 20px; padding: 18px 20px; height: 100%;
+  box-shadow: 0 18px 40px rgba(5,10,25,0.35); transition: transform .2s, box-shadow .2s, border-color .2s; }
+.card:hover { transform: translateY(-3px); border-color: rgba(255,107,91,0.55); }
+.stApp .card, .stApp .card p, .stApp .card li, .stApp .card span, .stApp .card h4, .stApp .card b { color: #F4EDE0; }
+.card h4 { margin: 0 0 4px; font-size: 20px; font-weight: 500; }
+.stApp .card .sub { color: #9AA3B8; font-size: 13px; margin-bottom: 10px; }
+.card .big { font-family: 'Inter Tight', sans-serif; font-size: 34px; font-weight: 400; letter-spacing: -0.03em; }
+.stApp .card .de { color: #9AA3B8; font-size: 15px; }
 .card ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
-.card.destacada { background: linear-gradient(160deg, #9B6DFF, #6A3FD9); border: 0; box-shadow: 0 16px 40px rgba(106,63,217,0.55); }
-.stApp .card.destacada, .stApp .card.destacada * { color: #FFFFFF !important; }
-.stApp .card.destacada .barra { background: rgba(255,255,255,0.25); }
-.stApp .card.destacada .barra > div { background: #FFFFFF; }
-.card.sharpe { box-shadow: 0 14px 34px rgba(10,22,15,0.35), inset 0 4px 0 #8B5CF6; }
-.card.minvar { box-shadow: 0 14px 34px rgba(10,22,15,0.35), inset 0 4px 0 #86A891; }
+.card.destacada { border: 1px solid rgba(255,107,91,0.8);
+  background: radial-gradient(260px 200px at 80% 0%, rgba(255,107,91,0.35), transparent 70%), rgba(29,46,82,0.7);
+  box-shadow: 0 18px 44px rgba(255,107,91,0.25); }
+.card.sharpe { box-shadow: 0 18px 40px rgba(5,10,25,0.35), inset 0 3px 0 #FF6B5B; }
+.card.minvar { box-shadow: 0 18px 40px rgba(5,10,25,0.35), inset 0 3px 0 #7D9BD1; }
 .badge { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-.stApp .badge.b-alta { background: #8B5CF6; color: #FFFFFF; border: 1px solid #8B5CF6; }
-.stApp .badge.b-media { background: rgba(134,168,145,0.20); color: #2E5A3F; border: 1px solid rgba(46,90,63,0.35); }
-.stApp .badge.b-baja { background: rgba(163,156,136,0.20); color: #6E6757; border: 1px solid rgba(110,103,87,0.30); }
-.stApp h3 .badge.b-alta, .stApp .perfil-card .badge.b-alta { color: #fff; }
-.barra { height: 7px; border-radius: 7px; background: #E2D9C6; margin: 3px 0 9px; overflow: hidden; }
-.barra > div { height: 100%; border-radius: 7px; background: linear-gradient(90deg, #8B5CF6, #A887FF); }
+.stApp .badge.b-alta { background: #FF6B5B; color: #FFFFFF; border: 1px solid #FF6B5B; }
+.stApp .badge.b-media { background: rgba(244,237,224,0.10); color: #F4EDE0; border: 1px solid rgba(244,237,224,0.35); }
+.stApp .badge.b-baja { background: rgba(125,155,209,0.12); color: #AFC2E6; border: 1px solid rgba(125,155,209,0.40); }
+.barra { height: 6px; border-radius: 6px; background: rgba(244,237,224,0.12); margin: 3px 0 9px; overflow: hidden; }
+.barra > div { height: 100%; border-radius: 6px; background: linear-gradient(90deg, #FF6B5B, #FF9C8F); }
 .fila-b { display: flex; justify-content: space-between; font-size: 13px; }
 
-/* textos generales sobre el fondo verde */
-.explica { border-left: 3px solid #8B5CF6; background: rgba(139,92,246,0.10); padding: 14px 18px;
+/* textos generales */
+.explica { border-left: 2px solid #FF6B5B; background: rgba(255,107,91,0.08); padding: 14px 18px;
   border-radius: 0 14px 14px 0; font-size: 15px; margin: 6px 0 14px; }
-.explica.azul { border-left-color: #86A891; background: rgba(134,168,145,0.10); }
-.stApp .explica, .stApp .explica * { color: #E8DCC4; } .stApp .explica b { color: #FFFFFF; }
+.explica.azul { border-left-color: #7D9BD1; background: rgba(125,155,209,0.10); }
+.stApp .explica, .stApp .explica * { color: #F4EDE0; } .stApp .explica b { color: #FFFFFF; }
 .pie { font-size: 13px; margin-top: 24px; }
-.stApp .pie { color: #A39C88; }
-div[data-testid="stMetric"] { background: rgba(38,74,53,0.75); border: 1px solid rgba(232,220,196,0.14); border-radius: 18px; padding: 14px 16px; }
-div[data-testid="stMetricValue"] { font-family: 'Instrument Sans', sans-serif; }
+.stApp .pie { color: #9AA3B8; }
+div[data-testid="stMetric"] { background: rgba(29,46,82,0.55); backdrop-filter: blur(12px); border: 1px solid rgba(244,237,224,0.14);
+  border-radius: 18px; padding: 14px 16px; }
+div[data-testid="stMetricValue"] { font-family: 'Inter Tight', sans-serif; font-weight: 400; }
 
 /* ---- Colores forzados: la app se ve igual aunque falte .streamlit/config.toml ---- */
 .stApp, .stApp p, .stApp li, .stApp span, .stApp label, .stApp summary, .stApp small,
-.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 { color: #E8DCC4; }
-.stApp .titulo span { color: #8B5CF6; } .stApp .titulo .chispa { color: #FFFFFF; } .stApp .sello { color: #FFFFFF; }
-.stApp [data-testid="stCaptionContainer"], .stApp [data-testid="stCaptionContainer"] * { color: #A39C88; }
-.stApp [data-testid="stMetricLabel"], .stApp [data-testid="stMetricLabel"] * { color: #CFC4AC; }
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 { color: #F4EDE0; }
+.stApp .titulo span { color: #FF6B5B; } .stApp .sello { color: #FFFFFF; }
+.stApp .hero .rutas span:first-child:before { color: #FF6B5B; }
+.stApp .beneficios div:first-child, .stApp .beneficios div:first-child i { color: #FF6B5B; }
+.stApp [data-testid="stCaptionContainer"], .stApp [data-testid="stCaptionContainer"] * { color: #9AA3B8; }
+.stApp [data-testid="stMetricLabel"], .stApp [data-testid="stMetricLabel"] * { color: #D9D2C4; }
 .stApp [data-testid="stMetricValue"], .stApp [data-testid="stMetricValue"] * { color: #FFFFFF; }
-.stApp [data-testid="stMetricDelta"] { background: rgba(139,92,246,0.18) !important; }
-.stApp [data-testid="stMetricDelta"] * { color: #C9B5FF !important; fill: #C9B5FF !important; }
+.stApp [data-testid="stMetricDelta"] { background: rgba(255,107,91,0.16) !important; }
+.stApp [data-testid="stMetricDelta"] * { color: #FF9C8F !important; fill: #FF9C8F !important; }
 div[data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: visible !important; row-gap: 8px; }
 /* botones */
 .stApp button[data-testid^="stBaseButton-primary"], .stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
-  background: #8B5CF6 !important; border: 0 !important; border-radius: 999px !important; padding: 0.55rem 1.4rem !important;
-  box-shadow: 0 8px 24px rgba(139,92,246,0.45); }
-.stApp button[data-testid^="stBaseButton-primary"]:hover { background: #7A4AF0 !important; box-shadow: 0 10px 30px rgba(139,92,246,0.6); }
+  background: #FF6B5B !important; border: 0 !important; border-radius: 999px !important; padding: 0.55rem 1.4rem !important;
+  box-shadow: 0 8px 24px rgba(255,107,91,0.40); }
+.stApp button[data-testid^="stBaseButton-primary"]:hover { background: #F25848 !important; box-shadow: 0 10px 30px rgba(255,107,91,0.55); }
 .stApp button[data-testid^="stBaseButton-primary"] * { color: #FFFFFF !important; font-weight: 600; }
-.stApp button[data-testid="stBaseButton-secondary"] { background: rgba(139,92,246,0.14) !important; border: 1px solid rgba(182,156,255,0.45) !important;
+.stApp button[data-testid="stBaseButton-secondary"] { background: rgba(244,237,224,0.06) !important; border: 1px solid rgba(244,237,224,0.30) !important;
   border-radius: 999px !important; }
-.stApp button[data-testid="stBaseButton-secondary"] * { color: #E8DCC4 !important; }
+.stApp button[data-testid="stBaseButton-secondary"] * { color: #F4EDE0 !important; }
 /* pills y control segmentado */
 .stApp button[data-variant="pills"], .stApp button[data-variant="segmented_control"],
 .stApp button[data-testid="stBaseButton-pills"], .stApp button[data-testid="stBaseButton-segmented_control"] {
-  background: rgba(21,41,29,0.6) !important; border: 1px solid rgba(232,220,196,0.25) !important; }
+  background: rgba(14,24,48,0.55) !important; border: 1px solid rgba(244,237,224,0.22) !important; }
 .stApp button[data-variant="pills"] *, .stApp button[data-variant="segmented_control"] *,
-.stApp button[data-testid="stBaseButton-pills"] *, .stApp button[data-testid="stBaseButton-segmented_control"] * { color: #E8DCC4 !important; }
+.stApp button[data-testid="stBaseButton-pills"] *, .stApp button[data-testid="stBaseButton-segmented_control"] * { color: #F4EDE0 !important; }
 .stApp button[data-variant="pills"][aria-pressed="true"], .stApp button[data-variant="segmented_control"][aria-checked="true"],
 .stApp button[data-testid="stBaseButton-pillsActive"], .stApp button[data-testid="stBaseButton-segmented_controlActive"] {
-  background: #8B5CF6 !important; border: 1px solid #8B5CF6 !important; box-shadow: 0 6px 18px rgba(139,92,246,0.4); }
+  background: #FF6B5B !important; border: 1px solid #FF6B5B !important; box-shadow: 0 6px 18px rgba(255,107,91,0.35); }
 .stApp button[data-variant="pills"][aria-pressed="true"] *, .stApp button[data-variant="segmented_control"][aria-checked="true"] *,
 .stApp button[data-testid="stBaseButton-pillsActive"] *, .stApp button[data-testid="stBaseButton-segmented_controlActive"] * { color: #FFFFFF !important; }
 /* radio */
-.stApp [data-testid="stRadioOption"] > div > div:first-child { background-color: #15291D !important; border: 2px solid rgba(232,220,196,0.45) !important; }
+.stApp [data-testid="stRadioOption"] > div > div:first-child { background-color: #0E1830 !important; border: 2px solid rgba(244,237,224,0.45) !important; }
 .stApp [data-testid="stRadioOption"] > div > div:first-child > div { background-color: transparent !important; }
-.stApp [data-testid="stRadioOption"][data-selected="true"] > div > div:first-child { border-color: #8B5CF6 !important; }
-.stApp [data-testid="stRadioOption"][data-selected="true"] > div > div:first-child > div { background-color: #8B5CF6 !important; }
+.stApp [data-testid="stRadioOption"][data-selected="true"] > div > div:first-child { border-color: #FF6B5B !important; }
+.stApp [data-testid="stRadioOption"][data-selected="true"] > div > div:first-child > div { background-color: #FF6B5B !important; }
 /* campos de texto, número y listas */
 .stApp [data-baseweb="input"], .stApp [data-baseweb="base-input"], .stApp [data-baseweb="select"] > div, .stApp textarea, .stApp input,
 .stApp [data-testid="stMultiSelect"] [role="group"], .stApp [data-testid="stSelectbox"] [role="group"], .stApp [data-testid="stSelectbox"] button {
-  background-color: #15291D !important; color: #E8DCC4 !important; border-color: rgba(232,220,196,0.22) !important; }
-.stApp input::placeholder, .stApp textarea::placeholder { color: #8B8676 !important; }
-.stApp [data-baseweb="select"] svg, .stApp [data-testid="stNumberInput"] button svg { fill: #E8DCC4 !important; color: #E8DCC4 !important; }
-.stApp [data-testid="stNumberInput"] button { background-color: #264A35 !important; }
+  background-color: #0E1830 !important; color: #F4EDE0 !important; border-color: rgba(244,237,224,0.20) !important; }
+.stApp input::placeholder, .stApp textarea::placeholder { color: #7C869C !important; }
+.stApp [data-baseweb="select"] svg, .stApp [data-testid="stNumberInput"] button svg { fill: #F4EDE0 !important; color: #F4EDE0 !important; }
+.stApp [data-testid="stNumberInput"] button { background-color: #1D2E52 !important; }
 .stApp [data-testid="stMultiSelectTagsContainer"] [role="group"] { background: transparent !important; }
 .stApp [data-baseweb="tag"], .stApp [data-testid="stMultiSelectTagsContainer"] > span > span {
-  background-color: rgba(139,92,246,0.22) !important; border: 1px solid rgba(182,156,255,0.55) !important; border-radius: 999px !important; }
-.stApp [data-baseweb="tag"] *, .stApp [data-testid="stMultiSelectTagsContainer"] > span > span * { color: #EDE6FF !important; }
+  background-color: rgba(255,107,91,0.18) !important; border: 1px solid rgba(255,107,91,0.55) !important; border-radius: 999px !important; }
+.stApp [data-baseweb="tag"] *, .stApp [data-testid="stMultiSelectTagsContainer"] > span > span * { color: #FFE3DF !important; }
 div[data-baseweb="popover"] ul, div[data-baseweb="popover"] li, div[data-baseweb="menu"], [role="listbox"], [role="option"] {
-  background-color: #15291D !important; color: #E8DCC4 !important; }
+  background-color: #0E1830 !important; color: #F4EDE0 !important; }
 div[data-baseweb="popover"] li:hover, [role="option"]:hover, [role="option"][aria-selected="true"], [role="option"][data-focused="true"] {
-  background-color: rgba(139,92,246,0.25) !important; }
-div[data-baseweb="popover"] *, [role="listbox"] * { color: #E8DCC4 !important; }
+  background-color: rgba(255,107,91,0.22) !important; }
+div[data-baseweb="popover"] *, [role="listbox"] * { color: #F4EDE0 !important; }
 /* expanders, formularios, slider, avisos */
-.stApp [data-testid="stExpander"] details { background: rgba(21,41,29,0.6); border: 1px solid rgba(232,220,196,0.16) !important; border-radius: 16px; }
-.stApp [data-testid="stExpander"] summary:hover * { color: #B69CFF; }
-.stApp [data-testid="stForm"] { border: 1px solid rgba(232,220,196,0.16); background: rgba(21,41,29,0.45); border-radius: 20px; }
-.stApp [data-testid="stSlider"] [role="slider"] { background-color: #8B5CF6 !important; box-shadow: 0 0 0 4px rgba(139,92,246,0.25); }
-.stApp [data-testid="stTooltipIcon"] svg { stroke: #A39C88 !important; }
-.stApp [data-testid="stAlert"] * { color: #E8DCC4; }
-.stApp [data-testid="stCheckbox"] label span:first-child { border-color: #B69CFF !important; }
+.stApp [data-testid="stExpander"] details { background: rgba(14,24,48,0.5); border: 1px solid rgba(244,237,224,0.16) !important; border-radius: 16px; }
+.stApp [data-testid="stExpander"] summary:hover * { color: #FF9C8F; }
+.stApp [data-testid="stForm"] { border: 1px solid rgba(244,237,224,0.16); background: rgba(14,24,48,0.45); backdrop-filter: blur(10px); border-radius: 20px; }
+.stApp [data-testid="stSlider"] [role="slider"] { background-color: #FF6B5B !important; box-shadow: 0 0 0 4px rgba(255,107,91,0.25); }
+.stApp [data-testid="stTooltipIcon"] svg { stroke: #9AA3B8 !important; }
+.stApp [data-testid="stAlert"] * { color: #F4EDE0; }
+.stApp [data-testid="stCheckbox"] label span:first-child { border-color: #FF9C8F !important; }
 /* navegación principal: botones grandes */
-.stApp [data-testid="stTabs"] [role="tablist"] { gap: 12px; flex-wrap: wrap; border: 0 !important; padding: 6px 0 16px; }
-.stApp [data-testid="stTabs"] [role="tab"] { flex: 1 1 200px; min-height: 64px; padding: 14px 24px !important; justify-content: center;
-  background: rgba(21,41,29,0.65) !important; border: 1px solid rgba(232,220,196,0.22) !important; border-radius: 999px !important;
-  transition: border-color .2s, box-shadow .2s, background .2s; }
-.stApp [data-testid="stTabs"] [role="tab"] p { font-family: 'Instrument Sans', sans-serif !important; font-size: 20px !important;
-  font-weight: 600 !important; color: #E8DCC4 !important; }
-.stApp [data-testid="stTabs"] [role="tab"]:hover { border-color: rgba(182,156,255,0.7) !important; }
+.stApp [data-testid="stTabs"] [role="tablist"] { gap: 10px; flex-wrap: wrap; border: 0 !important; padding: 8px; margin-bottom: 14px;
+  background: rgba(14,24,48,0.55); border-radius: 999px; border: 1px solid rgba(244,237,224,0.14) !important; }
+.stApp [data-testid="stTabs"] [role="tab"] { flex: 1 1 200px; min-height: 58px; padding: 12px 24px !important; justify-content: center;
+  background: transparent !important; border: 1px solid transparent !important; border-radius: 999px !important; transition: background .2s, box-shadow .2s; }
+.stApp [data-testid="stTabs"] [role="tab"] p { font-family: 'Inter Tight', sans-serif !important; font-size: 20px !important;
+  font-weight: 500 !important; color: #D9D2C4 !important; }
+.stApp [data-testid="stTabs"] [role="tab"]:hover { background: rgba(244,237,224,0.08) !important; }
 .stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"], .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] {
-  background: #8B5CF6 !important; border-color: #8B5CF6 !important; box-shadow: 0 10px 28px rgba(139,92,246,0.45); }
+  background: #FF6B5B !important; box-shadow: 0 8px 24px rgba(255,107,91,0.40); }
 .stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"] p, .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] p { color: #FFFFFF !important; }
 .stApp [data-testid="stTabs"] .react-aria-SelectionIndicator, div[data-baseweb="tab-highlight"], div[data-baseweb="tab-border"] { display: none !important; }
 /* encuesta y tarjeta de perfil */
-.encuesta, .perfil-card { border: 1px solid rgba(232,220,196,0.16); border-radius: 24px; padding: 22px 26px; margin: 6px 0 14px;
-  background: radial-gradient(600px 200px at 100% 0%, rgba(139,92,246,0.22), transparent 70%), rgba(21,41,29,0.7); }
-.stApp .kicker { color: #B69CFF; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
-.encuesta h3 { margin: 4px 0 6px; font-size: 28px; }
-.stApp .encuesta p, .stApp .perfil-card p { color: #E8DCC4; opacity: .88; margin: 0; max-width: 820px; }
-.perfil-tipo { font-family: 'Instrument Sans', sans-serif; font-size: 38px; font-weight: 700; margin: 2px 0 6px; }
-.stApp .perfil-tipo { color: #B69CFF; }
+.encuesta, .perfil-card { border: 1px solid rgba(244,237,224,0.16); border-radius: 24px; padding: 22px 26px; margin: 6px 0 14px;
+  background: radial-gradient(500px 220px at 100% 0%, rgba(255,107,91,0.22), transparent 70%), rgba(29,46,82,0.55); backdrop-filter: blur(12px); }
+.stApp .kicker { color: #FF9C8F; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+.encuesta h3 { margin: 4px 0 6px; font-size: 30px; }
+.stApp .encuesta p, .stApp .perfil-card p { color: #F4EDE0; opacity: .88; margin: 0; max-width: 820px; }
+.perfil-tipo { font-family: 'Inter Tight', sans-serif; font-size: 42px; font-weight: 400; letter-spacing: -0.03em; margin: 2px 0 6px; }
+.stApp .perfil-tipo { color: #FF6B5B; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
-.stApp .chips span { background: rgba(232,220,196,0.08); border: 1px solid rgba(232,220,196,0.25); border-radius: 999px;
-  padding: 5px 12px; font-size: 13px; color: #E8DCC4; }
+.stApp .chips span { background: rgba(244,237,224,0.08); border: 1px solid rgba(244,237,224,0.22); border-radius: 999px;
+  padding: 5px 12px; font-size: 13px; color: #F4EDE0; }
 .stApp .chips span b { color: #FFFFFF; }
-.stApp .perfil-card .nota { color: #A39C88; font-size: 13px; opacity: 1; }
-.stApp [data-testid="stForm"] [data-testid="stRadio"] { background: rgba(38,74,53,0.45); border: 1px solid rgba(232,220,196,0.14);
+.stApp .perfil-card .nota { color: #9AA3B8; font-size: 13px; opacity: 1; }
+.stApp [data-testid="stForm"] [data-testid="stRadio"] { background: rgba(29,46,82,0.5); border: 1px solid rgba(244,237,224,0.12);
   border-radius: 16px; padding: 12px 14px; margin-bottom: 6px; width: 100%; box-sizing: border-box; }
-.stApp .card.destacada .badge.b-alta { background: #FFFFFF; border-color: #FFFFFF; color: #6A3FD9 !important; }
 .stApp [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stRadio"]) { width: 100% !important; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
 </style>
@@ -190,14 +199,14 @@ div[data-baseweb="popover"] *, [role="listbox"] * { color: #E8DCC4 !important; }
 
 pio.templates["radar"] = go.layout.Template(layout=dict(
     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter, sans-serif", color=ARENA, size=13),
-    colorway=[MORADO, ARENA, SALVIA, LILA, ARENA_TENUE, MORADO_OSC],
+    font=dict(family="Inter, sans-serif", color=CREMA, size=13),
+    colorway=[CORAL, CREMA, ACERO, CORAL_SUAVE, CREMA_TENUE, CORAL_OSC],
     xaxis=dict(gridcolor=LINEA, zerolinecolor=LINEA, linecolor=LINEA, automargin=True),
     yaxis=dict(gridcolor=LINEA, zerolinecolor=LINEA, linecolor=LINEA, automargin=True),
-    legend=dict(bgcolor="rgba(0,0,0,0)"), hoverlabel=dict(bgcolor=BOSQUE_OSC, font_color=ARENA),
+    legend=dict(bgcolor="rgba(0,0,0,0)"), hoverlabel=dict(bgcolor=NAVY_OSC, font_color=CREMA),
     margin=dict(l=10, r=10, t=30, b=10)))
 pio.templates.default = "radar"
-ESCALA = [[0, "#4E7A5E"], [0.5, ARENA], [1, MORADO]]  # bajo → alto
+ESCALA = [[0, "#3A4E7A"], [0.5, CREMA], [1, CORAL]]  # bajo → alto
 
 # ---------------------------------------------------------------------------
 # Universos (símbolos de Yahoo Finance)
@@ -491,11 +500,17 @@ def dinero(x: float, moneda: str) -> str:
 # ---------------------------------------------------------------------------
 st.markdown("""
 <div class="hero">
-  <div class="sello">Datos<br>en vivo</div>
-  <div class="rutas"><span>→ Oportunidades</span><span>→ Valoración</span><span>→ Portafolio óptimo</span></div>
-  <div class="titulo"><span class="chispa">✦</span>Radar de <span>inversión</span></div>
+  <div class="sello">Datos en vivo</div>
+  <div class="rutas"><span>Oportunidades</span><span>Valoración</span><span>Portafolio</span></div>
+  <div class="titulo">Radar de <span>inversión</span>.</div>
   <p>Encuentra acciones y criptomonedas interesantes, entiende si su precio tiene sentido y descubre
   cómo repartir tu dinero entre ellas. Sin necesidad de ser experto.</p>
+  <div class="beneficios">
+    <div><i>◎</i>Acciones de Colombia,<br>EE.UU. y Latinoamérica</div>
+    <div><i>₿</i>Bitcoin, Ethereum,<br>Solana y XRP</div>
+    <div><i>⚖</i>Valoración por<br>múltiplos</div>
+    <div><i>◔</i>Portafolio óptimo<br>para tu perfil</div>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -695,7 +710,7 @@ with tab1:
                 marker=dict(size=np.sqrt(tam / tam.max()) * 46 + 8, color=df["Puntaje"], colorscale=ESCALA, cmin=20, cmax=80,
                             line=dict(color=NAVY, width=1), opacity=0.9, colorbar=dict(title="Puntaje"))))
             fig.add_shape(type="rect", x0=50, x1=100, y0=50, y1=100, fillcolor="rgba(139,92,246,0.10)", line_width=0, layer="below")
-            fig.add_annotation(x=98, y=98, text="Baratas y sólidas", showarrow=False, xanchor="right", font=dict(color=LILA))
+            fig.add_annotation(x=98, y=98, text="Baratas y sólidas", showarrow=False, xanchor="right", font=dict(color=CORAL_SUAVE))
             fig.update_layout(height=460, xaxis=dict(title="Precio atractivo →", range=[0, 102]),
                               yaxis=dict(title="Solidez del negocio →", range=[0, 102]))
             st.plotly_chart(fig, width="stretch", theme=None)
@@ -782,14 +797,14 @@ with tab2:
             if len(val):
                 st.markdown("##### ¿Cuánto valdría según cada forma de medir?")
                 fig = go.Figure(go.Bar(y=val["Método"], x=val["Precio implícito"], orientation="h",
-                                       marker_color=np.where(val["Upside"] >= 0, MORADO, SALVIA),
+                                       marker_color=np.where(val["Upside"] >= 0, CORAL, ACERO),
                                        text=[f"{v:,.2f} ({u:+.0%})" for v, u in zip(val["Precio implícito"], val["Upside"])],
                                        textposition="outside", cliponaxis=False))
                 fig.add_vline(x=fila["Precio"], line_color=BEIGE, line_width=2, line_dash="dot",
                               annotation_text="precio hoy", annotation_font_color=BEIGE)
                 fig.update_layout(height=330, xaxis_title=f"Precio por acción ({fila['Moneda']})", margin=dict(r=120))
                 st.plotly_chart(fig, width="stretch", theme=None)
-                st.caption("Morado: valdría más que hoy. Verde salvia: valdría menos. Cada barra usa un múltiplo distinto "
+                st.caption("Coral: valdría más que hoy. Azul: valdría menos. Cada barra usa un múltiplo distinto "
                            "(P/E = precio/utilidad, P/B = precio/patrimonio, P/S = precio/ventas, EV/EBITDA = valor empresa/flujo operativo).")
 
         st.markdown("##### Sus números frente a los comparables, en palabras simples")
@@ -922,7 +937,7 @@ with tab3:
                 st.warning(f"Dejé por fuera (poca historia de precios): {', '.join(o['excluidos'])}")
             if (mu < rf).all():
                 st.warning("Todos los activos rindieron menos que la tasa libre de riesgo en este periodo; el portafolio de Sharpe será 'el menos malo'.")
-            colores = {"Máximo Sharpe": MORADO, "Mínima varianza": ARENA}
+            colores = {"Máximo Sharpe": CORAL, "Mínima varianza": CREMA}
             columnas = st.columns(2, gap="large")
             for col, (nombre, w) in zip(columnas, o["w"].items()):
                 r, v, s = M._stats(w.values, mu.values, cov.values, rf)
@@ -930,8 +945,8 @@ with tab3:
                 asig = asig[asig["Peso objetivo"] > 0].sort_values("Peso objetivo", ascending=False)
                 with col:
                     st.markdown(f"<h3>{'🎯' if nombre == 'Máximo Sharpe' else '🛡️'} {nombre} {sello(nombre)}</h3>", unsafe_allow_html=True)
-                    pal = ([MORADO, LILA, ARENA, SALVIA, MORADO_OSC, ARENA_TENUE, "#4E7A5E"] if nombre == "Máximo Sharpe"
-                           else [ARENA, SALVIA, MORADO, ARENA_TENUE, LILA, "#4E7A5E", MORADO_OSC])
+                    pal = ([CORAL, CORAL_SUAVE, CREMA, ACERO, CORAL_OSC, CREMA_TENUE, "#3A4E7A"] if nombre == "Máximo Sharpe"
+                           else [CREMA, ACERO, CORAL, CREMA_TENUE, CORAL_SUAVE, "#3A4E7A", CORAL_OSC])
                     fig = go.Figure(go.Pie(labels=[t.replace(".CL", "") for t in asig.index], values=asig["Peso objetivo"], hole=0.62, sort=False,
                                            marker=dict(colors=pal * 5, line=dict(color=NAVY, width=2)),
                                            textinfo="label+percent", textposition="outside",
@@ -965,14 +980,14 @@ with tab3:
 
             st.markdown("### ¿Dónde quedan tus portafolios frente a todas las combinaciones posibles?")
             st.markdown('<div class="explica">Cada punto pequeño es una forma distinta de repartir tu dinero. Más a la derecha = más altibajos; '
-                        'más arriba = más rendimiento. La <b>línea beige</b> es la frontera eficiente: las mejores combinaciones posibles '
+                        'más arriba = más rendimiento. La <b>línea crema</b> es la frontera eficiente: las mejores combinaciones posibles '
                         'para cada nivel de riesgo (respetando el máximo por activo). Tus dos portafolios están sobre ella.</div>', unsafe_allow_html=True)
             fr = M.frontera(mu, cov, o["cap"])
             rnd = M.portafolios_aleatorios(mu, cov, rf, cap=o["cap"])
             fig = go.Figure()
             fig.add_scatter(x=rnd["Volatilidad"], y=rnd["Retorno"], mode="markers", name="Combinaciones posibles", hoverinfo="skip",
                             marker=dict(size=4, color=rnd["Sharpe"], colorscale=ESCALA, opacity=0.35, showscale=False))
-            fig.add_scatter(x=fr["Volatilidad"], y=fr["Retorno"], mode="lines", name="Frontera eficiente", line=dict(color=ARENA, width=3))
+            fig.add_scatter(x=fr["Volatilidad"], y=fr["Retorno"], mode="lines", name="Frontera eficiente", line=dict(color=CREMA, width=3))
             vols = np.sqrt(np.diag(cov.values))
             fig.add_scatter(x=vols, y=mu.values, mode="markers+text", text=[t.replace(".CL", "") for t in mu.index],
                             textposition="top center", name="Cada activo solo", marker=dict(size=9, color=MUTED, symbol="diamond"))
@@ -991,7 +1006,7 @@ with tab3:
             if o["mkt"] is not None:
                 cum["S&P 500"] = (1 + o["mkt"]).cumprod() * 100
             fig = go.Figure()
-            for c, color in zip(cum, [MORADO, ARENA, ARENA_TENUE, SALVIA]):
+            for c, color in zip(cum, [CORAL, CREMA, CREMA_TENUE, ACERO]):
                 fig.add_scatter(x=cum.index, y=cum[c], name=c, mode="lines",
                                 line=dict(color=color, width=3 if c in o["w"] else 1.6, dash="solid" if c in o["w"] else "dot"))
             fig.update_layout(height=380, yaxis_title="Valor de cada 100 invertidos", legend=dict(orientation="h", y=-0.18))
