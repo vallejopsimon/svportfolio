@@ -126,7 +126,8 @@ def _rank(s: pd.Series, mayor_mejor: bool) -> pd.Series:
 
 def puntajes(df: pd.DataFrame, pesos: dict, relativo_sector: bool = True, min_pares: int = 4) -> pd.DataFrame:
     d = df.copy()
-    d["E/P fwd"] = d["P/E fwd"].map(_inv)
+    # E/P forward; si no hay estimado de analistas, se usa el E/P de los últimos 12 meses
+    d["E/P fwd"] = d["P/E fwd"].map(_inv).fillna(d["P/E"].map(_inv))
     d["EBITDA/EV"] = d["EV/EBITDA"].map(_inv)
     d["B/P"] = d["P/B"].map(_inv)
     d["S/P"] = d["P/S"].map(_inv)

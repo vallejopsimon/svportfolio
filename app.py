@@ -18,6 +18,7 @@ import plotly.io as pio
 import streamlit as st
 import yfinance as yf
 
+import fuentes as F
 import motor as M
 
 st.set_page_config(page_title="Radar · Inversión inteligente", page_icon="📡", layout="wide")
@@ -214,6 +215,21 @@ GRUPOS = {
 }
 # Si Yahoo no tiene datos de la acción local, se usa otro listado de la misma empresa
 RESPALDO = {"MINEROS.CL": "MSA.TO", "CIBEST.CL": "CIB", "ECOPETROL.CL": "EC", "PFAVAL.CL": "AVAL"}
+# Sector de cada activo de las listas (se usa cuando Yahoo no lo entrega)
+_S = {
+    "Financial Services": "CIBEST.CL PFCIBEST.CL PFAVAL.CL BOGOTA.CL PFDAVVNDA.CL CORFICOLCF.CL GRUPOSURA.CL BVC.CL BRK-B JPM V MA "
+                          "BAC WFC GS MS C BLK SCHW AXP USB PNC CIB AVAL ITUB BBD NU BAP",
+    "Energy": "ECOPETROL.CL TERPEL.CL XOM CVX COP EOG SLB OXY PSX MPC VLO EC PBR",
+    "Utilities": "GEB.CL CELSIA.CL ISA.CL PROMIGAS.CL",
+    "Basic Materials": "MINEROS.CL MSA.TO CEMARGOS.CL VALE SQM CX",
+    "Industrials": "GRUPOARGOS.CL TGLS",
+    "Technology": "AAPL MSFT NVDA AVGO ORCL CRM ADBE AMD INTC QCOM TXN IBM CSCO NOW INTU MU AMAT",
+    "Communication Services": "GOOGL META AMX",
+    "Consumer Cyclical": "AMZN TSLA HD MCD NKE SBUX MELI",
+    "Consumer Defensive": "PG COST WMT KO PEP FMX",
+    "Healthcare": "LLY UNH JNJ MRK ABBV PFE TMO ABT AMGN BMY GILD CVS",
+}
+SECTORES = {t: s for s, ts in _S.items() for t in ts.split()}
 SCREENERS = {
     "Large caps infravaloradas": "undervalued_large_caps",
     "Crecimiento a buen precio": "undervalued_growth_stocks",
@@ -284,35 +300,99 @@ def _moneda_probable(t: str) -> str:
         "." + t.rsplit(".", 1)[-1] if "." in t else "", "USD")
 
 
+_FX: dict = {}
+
+
+def _fx(de: str, a: str) -> float:
+    """Unidades de `a` por 1 unidad de `de` (tasa de Yahoo). Maneja subunidades como GBp."""
+    base, factor = MONEDAS_SUB.get(a, (a, 1))
+    if de == base:
+        return float(factor)
+    if (de, base) not in _FX:
+        _FX[(de, base)] = F.parse_chart(F.chart(f"{de}{base}=X", "5d"))["precio"]
+    return _FX[(de, base)] * factor
+
+
+def _estados_financieros(t: str) -> tuple[dict | None, str]:
+    """Plan B: fundamentales calculados desde los estados financieros de Yahoo (no exige el permiso del resumen)."""
+    error = ""
+    for simbolo in (t, RESPALDO.get(t)):
+        if not simbolo:
+            continue
+        try:
+            ch = F.parse_chart(F.chart(simbolo))
+            if not ch["precio"]:
+                continue
+            if ch["tipo"] == "CRYPTOCURRENCY" or simbolo.endswith("-USD"):
+                fila = M.metricas_desde_info(simbolo, {"regularMarketPrice": ch["precio"], "currency": ch["moneda"],
+                                                       "shortName": ch["nombre"], "quoteType": "CRYPTOCURRENCY",
+                                                       "fiftyTwoWeekHigh": ch["hi52"], "fiftyTwoWeekLow": ch["lo52"]})
+                return fila, ""
+            ts = F.parse_timeseries(F.timeseries(simbolo))
+            if not ts:
+                error = "sin estados financieros"
+                continue
+            return F.calcular_metricas(simbolo, ch, ts, lambda mon: _fx(mon, ch["moneda"])), ""
+        except F.LimiteYahoo:
+            return None, "limite"
+        except Exception as e:  # noqa: BLE001
+            error = f"{type(e).__name__}: {e}"[:200]
+    return None, error
+
+
+def _obtener(t: str, estado: dict) -> tuple[str, dict | None, str]:
+    # 1) Resumen de Yahoo (más completo: P/E forward, analistas, sector, beta)
+    err = ""
+    if not estado["bloqueo"].is_set():
+        sim, info, err = _info(t, estado["bloqueo"])
+        with estado["lock"]:
+            estado["ok" if info else "fallas"] += 1
+            if estado["fallas"] >= 3 and estado["ok"] == 0:
+                estado["bloqueo"].set()  # el resumen no está disponible: pasar directo al plan B
+        if info:
+            fila = M.metricas_desde_info(sim, info)
+            fila["Fuente"] = "Resumen de Yahoo"
+            return t, fila, ""
+    # 2) Estados financieros de Yahoo
+    fila, err2 = _estados_financieros(t)
+    if fila:
+        fila["Fuente"] = "Precio de Yahoo" if fila["Tipo"] == "Cripto" else "Estados financieros de Yahoo"
+        return t, fila, ""
+    return t, None, err2 or err
+
+
 def cargar_fundamentales(tickers: tuple[str, ...]) -> tuple[pd.DataFrame, dict]:
     cache, ahora = _cache_info(), time.time()
     pendientes = [t for t in tickers if t not in cache or ahora - cache[t][0] > 3600]
     errores = {}
     if pendientes:
-        bloqueo = threading.Event()
+        estado = {"bloqueo": threading.Event(), "lock": threading.Lock(), "ok": 0, "fallas": 0}
         with ThreadPoolExecutor(max_workers=4) as ex:  # pocas consultas a la vez para no activar el límite de Yahoo
-            for t, (sim, info, err) in zip(pendientes, ex.map(lambda x: _info(x, bloqueo), pendientes)):
-                if info:
-                    cache[t] = (ahora, sim, info)
+            for t, fila, err in ex.map(lambda x: _obtener(x, estado), pendientes):
+                if fila:
+                    cache[t] = (ahora, fila)  # solo se guardan los éxitos
                 else:
                     errores[t] = err
-    filas = [M.metricas_desde_info(cache[t][1], cache[t][2]) for t in tickers if t in cache]
-    for f in filas:
-        f["Con fundamentales"] = True
-    # Plan B: si Yahoo no entregó fundamentales, al menos traemos el precio (otro servicio de Yahoo, menos restringido)
+    filas = [dict(cache[t][1], **{"Con fundamentales": cache[t][1]["Tipo"] == "Acción" or None})
+             for t in tickers if t in cache]
+    # Plan C: si tampoco hubo estados financieros, al menos el precio
     sin_info = [t for t in tickers if t not in cache]
     if sin_info:
         hist = cargar_precios(tuple(sin_info), "5d")
         for t in sin_info:
             if t in hist and hist[t].notna().any():
+                cripto = t.endswith("-USD")
                 f = M.metricas_desde_info(t, {"regularMarketPrice": float(hist[t].dropna().iloc[-1]), "shortName": t,
                                               "currency": _moneda_probable(t),
-                                              "quoteType": "CRYPTOCURRENCY" if t.endswith("-USD") else "EQUITY"})
-                f["Con fundamentales"] = False
+                                              "quoteType": "CRYPTOCURRENCY" if cripto else "EQUITY"})
+                f["Con fundamentales"] = None if cripto else False
+                f["Fuente"] = "Precio de Yahoo"
                 filas.append(f)
     df = pd.DataFrame(filas)
     if len(df):
         df = df[df["Precio"].notna()].drop_duplicates("Ticker")
+        conocido = df["Ticker"].map(SECTORES)
+        df["Sector"] = np.where((df["Sector"] == "Sin sector") & conocido.notna(), conocido, df["Sector"])
     return df.reset_index(drop=True), errores
 
 
@@ -567,7 +647,7 @@ with tab1:
                 with st.expander("Detalle técnico del error"):
                     st.write({t: ("límite de consultas de Yahoo" if e == "limite" else e) for t, e in list(errores.items())[:15]})
             else:
-                sin_fund = int((~fund["Con fundamentales"]).sum())
+                sin_fund = int((fund["Con fundamentales"] == False).sum())  # noqa: E712
                 if sin_fund:
                     st.warning(f"Yahoo solo entregó el precio de {sin_fund} activo(s), sin sus estados financieros"
                                + (" (límite de consultas)" if limite else "")
@@ -587,7 +667,9 @@ with tab1:
         cri = base[base["Tipo"] == "Cripto"]
         df = M.puntajes(acc, pesos) if len(acc) else acc.assign(**{b: np.nan for b in [*NOMBRE_BLOQUE, "Puntaje"]})
         st.session_state["df"] = df
+        n_ef = int((acc.get("Fuente") == "Estados financieros de Yahoo").sum()) if "Fuente" in acc else 0
         st.caption(f"Datos de Yahoo Finance · {st.session_state['fecha']} · {len(acc)} acciones y {len(cri)} criptos"
+                   + (f" · {n_ef} acciones valoradas con sus estados financieros (P/E y demás múltiplos calculados por la app)" if n_ef else "")
                    + (f" · sin datos: {', '.join(st.session_state['faltan'])}" if st.session_state["faltan"] else ""))
 
         if len(df):
