@@ -35,7 +35,7 @@ Se abre sola en el navegador en `http://localhost:8501`.
 ## Archivos
 
 - `app.py`: interfaz y descarga de datos (yfinance).
-- `.streamlit/config.toml`: colores de la app (azul noche con cian, rosa y verde neón). **Súbelo también a GitHub** (es una carpeta oculta: en Mac pulsa Cmd+Shift+. para verla).
+- `.streamlit/config.toml`: colores de la app (verde bosque, beige arena y morado eléctrico). **Súbelo también a GitHub** (es una carpeta oculta: en Mac pulsa Cmd+Shift+. para verla).
 - `fuentes.py`: plan B de datos. Si Yahoo bloquea su “resumen” (pasa en servidores en la nube), la app lee los estados financieros de Yahoo (ingresos, utilidad, EBITDA, patrimonio, deuda, caja, acciones) y calcula ella misma P/E, P/B, P/S, EV/EBITDA, ROE, márgenes y crecimiento, convirtiendo monedas cuando la empresa reporta en otra (p. ej. Mineros reporta en USD).
 - `motor.py`: cálculos puros — puntajes, múltiplos, Ledoit-Wolf, optimización (SciPy SLSQP).
 

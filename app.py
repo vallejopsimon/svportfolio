@@ -24,179 +24,180 @@ import motor as M
 st.set_page_config(page_title="Radar · Inversión inteligente", page_icon="📡", layout="wide")
 
 # ---------------------------------------------------------------------------
-# Identidad visual: azul noche + cian neón + grises (violeta solo en el título; verde = positivo)
+# Identidad visual: verde bosque + beige arena + morado eléctrico
 # ---------------------------------------------------------------------------
-CIAN, VERDE, VIOLETA = "#00E5FF", "#39FF88", "#AE65B6"
-GRIS1, GRIS2, GRIS3, GRIS4 = "#C9D1E0", "#9AA3B5", "#5B6478", "#2A3142"
-NAVY, PANEL, TEXTO, MUTED, LINEA = "#060B1E", "#0D1735", "#E6EEFF", "#8A97B8", "rgba(0,229,255,0.10)"
-NARANJA, AZUL, BEIGE = CIAN, GRIS1, TEXTO  # cian = máximo Sharpe, gris claro = mínima varianza
+BOSQUE, BOSQUE_OSC, BOSQUE_PANEL = "#1F3D2B", "#15291D", "#264A35"
+ARENA, ARENA_SUAVE, ARENA_TENUE = "#E8DCC4", "#CFC4AC", "#A39C88"
+MORADO, LILA, MORADO_OSC, SALVIA = "#8B5CF6", "#B69CFF", "#6A3FD9", "#86A891"
+LINEA = "rgba(232,220,196,0.12)"
+# nombres usados en el resto del código
+NAVY, PANEL, MUTED, BEIGE = BOSQUE_OSC, BOSQUE_PANEL, ARENA_TENUE, ARENA
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
 html, body, [class*="css"], .stMarkdown, p, li, label, input, textarea { font-family: 'Inter', sans-serif; }
-h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spacing: -0.02em; }
+h1, h2, h3, h4 { font-family: 'Instrument Sans', sans-serif !important; letter-spacing: -0.02em; }
 .stApp { background:
-  radial-gradient(900px 480px at 105% -10%, rgba(154,163,181,0.12), transparent 60%),
-  radial-gradient(800px 480px at -10% 5%, rgba(0,229,255,0.14), transparent 60%),
-  radial-gradient(700px 400px at 50% 110%, rgba(57,255,136,0.08), transparent 60%),
-  linear-gradient(rgba(0,229,255,0.035) 1px, transparent 1px) 0 0 / 44px 44px,
-  linear-gradient(90deg, rgba(0,229,255,0.035) 1px, transparent 1px) 0 0 / 44px 44px, #060B1E; }
+  radial-gradient(1000px 520px at 50% 108%, rgba(139,92,246,0.30), transparent 65%),
+  radial-gradient(700px 420px at 100% 0%, rgba(139,92,246,0.14), transparent 60%),
+  radial-gradient(rgba(232,220,196,0.13) 1px, transparent 1.5px) 0 0 / 24px 24px,
+  linear-gradient(180deg, #1F3D2B 0%, #1A3526 60%, #15291D 100%); background-attachment: fixed; }
 .block-container { padding-top: 1.6rem; max-width: 1280px; }
-.hero { border: 1px solid rgba(0,229,255,0.25); border-radius: 22px; padding: 28px 32px; position: relative; overflow: hidden;
-  background: linear-gradient(135deg, rgba(13,23,53,0.92), rgba(6,11,30,0.88));
-  box-shadow: 0 0 0 1px rgba(154,163,181,0.10), 0 0 40px rgba(0,229,255,0.10), inset 0 0 60px rgba(0,229,255,0.04); margin-bottom: 8px; }
-.hero:before { content:""; position:absolute; left:0; right:0; top:0; height:2px;
-  background: linear-gradient(90deg, #00E5FF, #9AA3B5 60%, #2A3142); box-shadow: 0 0 14px rgba(0,229,255,0.7); }
-.hero:after { content:""; position:absolute; right:-70px; top:-70px; width:260px; height:260px; border-radius:50%;
-  border: 2px solid rgba(0,229,255,0.55); box-shadow: 0 0 22px rgba(0,229,255,0.40), 0 0 0 28px rgba(154,163,181,0.06),
-  0 0 0 29px rgba(154,163,181,0.35), 0 0 0 66px rgba(57,255,136,0.04), 0 0 0 67px rgba(57,255,136,0.25); }
-.titulo { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size: clamp(32px, 4.4vw, 52px); line-height:1.05;
-  color:#E6EEFF; margin:0 0 10px; letter-spacing:-0.02em; }
-.titulo span { color: #0A2A6E; -webkit-text-stroke: 1.6px #00E5FF; paint-order: stroke fill;
-  text-shadow: 0 0 14px rgba(0,229,255,0.55), 0 0 30px rgba(0,229,255,0.25); }
-.hero p { color:#B9C6E4; font-size: 17px; max-width: 760px; margin: 0; }
-.card { background: rgba(13,23,53,0.88); border: 1px solid rgba(0,229,255,0.16); border-radius: 18px; padding: 18px 20px; height: 100%;
-  transition: border-color .2s, box-shadow .2s; }
-.card:hover { border-color: rgba(0,229,255,0.55); box-shadow: 0 0 24px rgba(0,229,255,0.16); }
-.card h4 { margin: 0 0 4px; font-size: 20px; color:#E6EEFF; }
-.card .sub { color:#8A97B8; font-size: 13px; margin-bottom: 10px; }
-.card .big { font-family:'Space Grotesk',sans-serif; font-size: 30px; font-weight:700; color:#E6EEFF; }
-.card ul { margin: 6px 0 0; padding-left: 18px; color:#C9D4EE; font-size: 14px; }
-.card.sharpe { border-color: rgba(0,229,255,0.45); box-shadow: 0 0 26px rgba(0,229,255,0.12); }
-.card.minvar { border-color: rgba(201,209,224,0.40); box-shadow: 0 0 26px rgba(201,209,224,0.08); }
-.badge { display:inline-block; padding: 3px 10px; border-radius:999px; font-size:12px; font-weight:600; }
-.b-alta { background: rgba(57,255,136,0.12); color:#39FF88; border:1px solid rgba(57,255,136,0.6); box-shadow: 0 0 10px rgba(57,255,136,0.25); }
-.b-media { background: rgba(0,229,255,0.10); color:#00E5FF; border:1px solid rgba(0,229,255,0.5); }
-.b-baja { background: rgba(154,163,181,0.12); color:#9AA3B5; border:1px solid rgba(154,163,181,0.45); }
-.explica { border-left: 3px solid #00E5FF; background: rgba(0,229,255,0.06); padding: 14px 18px;
-  border-radius: 0 14px 14px 0; color:#D3DCF2; font-size: 15px; margin: 6px 0 14px; }
-.explica.azul { border-left-color:#9AA3B5; background: rgba(154,163,181,0.08); }
-.explica b { color:#FFFFFF; }
-.barra { height:6px; border-radius:6px; background: rgba(230,238,255,0.08); margin: 3px 0 8px; overflow:hidden; }
-.barra > div { height:100%; border-radius:6px; background: linear-gradient(90deg, #00E5FF, #39FF88); box-shadow: 0 0 8px rgba(57,255,136,0.6); }
-.fila-b { display:flex; justify-content:space-between; font-size:13px; color:#B9C6E4; }
-div[data-testid="stMetric"] { background: rgba(13,23,53,0.85); border:1px solid rgba(0,229,255,0.18); border-radius: 16px; padding: 14px 16px; }
-div[data-testid="stMetricValue"] { font-family:'Space Grotesk',sans-serif; color:#FFFFFF; text-shadow: 0 0 14px rgba(0,229,255,0.35); }
-button[data-baseweb="tab"][aria-selected="true"] { color: #00E5FF; text-shadow: 0 0 10px rgba(0,229,255,0.7); }
-div[data-baseweb="tab-highlight"] { background: #00E5FF !important; box-shadow: 0 0 10px #00E5FF; }
-.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
-  background: linear-gradient(90deg, #00E5FF, #2FA8FF); border: 0; color: #060B1E; font-weight: 700; border-radius: 12px;
-  box-shadow: 0 0 18px rgba(0,229,255,0.45); }
-.stButton > button[kind="primary"]:hover, .stFormSubmitButton > button[kind="primary"]:hover { box-shadow: 0 0 28px rgba(0,229,255,0.6); color:#060B1E; }
-div[data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: visible !important; row-gap: 8px; }
-.pie { color:#8A97B8; font-size:13px; margin-top: 24px; }
+
+/* encabezado */
+.hero { position: relative; text-align: center; padding: 34px 24px 30px; margin-bottom: 10px; border-radius: 28px; overflow: hidden;
+  background: radial-gradient(700px 260px at 50% 120%, rgba(139,92,246,0.45), transparent 70%), rgba(21,41,29,0.55);
+  border: 1px solid rgba(232,220,196,0.14); }
+.hero .rutas { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; font-size: 13px; color: #CFC4AC; margin-bottom: 14px; }
+.titulo { font-family: 'Instrument Sans', sans-serif; font-weight: 700; font-size: clamp(36px, 5.2vw, 62px); line-height: 1.04;
+  color: #E8DCC4; margin: 0 0 12px; letter-spacing: -0.03em; }
+.titulo span { color: #8B5CF6; text-shadow: 0 0 28px rgba(139,92,246,0.45); }
+.titulo .chispa { display: inline-grid; place-items: center; width: 0.62em; height: 0.62em; border-radius: 50%; background: #8B5CF6;
+  color: #fff; font-size: 0.4em; vertical-align: 0.28em; margin-right: 0.25em; box-shadow: 0 0 18px rgba(139,92,246,0.7); text-shadow: none; }
+.hero p { color: #E8DCC4; opacity: .82; font-size: 17px; max-width: 640px; margin: 0 auto; }
+.sello { position: absolute; right: 28px; top: 22px; width: 78px; height: 78px; border-radius: 50%; background: #8B5CF6;
+  display: grid; place-items: center; transform: rotate(-14deg); font: 700 12px/1.1 'Instrument Sans', sans-serif; color: #fff;
+  text-align: center; box-shadow: 0 8px 26px rgba(139,92,246,0.55); }
+@media (max-width: 700px) { .sello { display: none; } }
+
+/* tarjetas claras (como en la referencia) */
+.card { background: #F4EEE2; border: 1px solid rgba(31,61,43,0.10); border-radius: 20px; padding: 18px 20px; height: 100%;
+  box-shadow: 0 14px 34px rgba(10,22,15,0.35); transition: transform .2s, box-shadow .2s; }
+.card:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(10,22,15,0.45), 0 0 0 2px rgba(139,92,246,0.35); }
+.stApp .card, .stApp .card p, .stApp .card li, .stApp .card span, .stApp .card h4, .stApp .card b { color: #1F3D2B; }
+.card h4 { margin: 0 0 4px; font-size: 20px; }
+.stApp .card .sub { color: #6B7A6F; font-size: 13px; margin-bottom: 10px; }
+.card .big { font-family: 'Instrument Sans', sans-serif; font-size: 32px; font-weight: 700; }
+.stApp .card .de { color: #8A8F84; font-size: 15px; }
+.card ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
+.card.destacada { background: linear-gradient(160deg, #9B6DFF, #6A3FD9); border: 0; box-shadow: 0 16px 40px rgba(106,63,217,0.55); }
+.stApp .card.destacada, .stApp .card.destacada * { color: #FFFFFF !important; }
+.stApp .card.destacada .barra { background: rgba(255,255,255,0.25); }
+.stApp .card.destacada .barra > div { background: #FFFFFF; }
+.card.sharpe { box-shadow: 0 14px 34px rgba(10,22,15,0.35), inset 0 4px 0 #8B5CF6; }
+.card.minvar { box-shadow: 0 14px 34px rgba(10,22,15,0.35), inset 0 4px 0 #86A891; }
+.badge { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.stApp .badge.b-alta { background: #8B5CF6; color: #FFFFFF; border: 1px solid #8B5CF6; }
+.stApp .badge.b-media { background: rgba(134,168,145,0.20); color: #2E5A3F; border: 1px solid rgba(46,90,63,0.35); }
+.stApp .badge.b-baja { background: rgba(163,156,136,0.20); color: #6E6757; border: 1px solid rgba(110,103,87,0.30); }
+.stApp h3 .badge.b-alta, .stApp .perfil-card .badge.b-alta { color: #fff; }
+.barra { height: 7px; border-radius: 7px; background: #E2D9C6; margin: 3px 0 9px; overflow: hidden; }
+.barra > div { height: 100%; border-radius: 7px; background: linear-gradient(90deg, #8B5CF6, #A887FF); }
+.fila-b { display: flex; justify-content: space-between; font-size: 13px; }
+
+/* textos generales sobre el fondo verde */
+.explica { border-left: 3px solid #8B5CF6; background: rgba(139,92,246,0.10); padding: 14px 18px;
+  border-radius: 0 14px 14px 0; font-size: 15px; margin: 6px 0 14px; }
+.explica.azul { border-left-color: #86A891; background: rgba(134,168,145,0.10); }
+.stApp .explica, .stApp .explica * { color: #E8DCC4; } .stApp .explica b { color: #FFFFFF; }
+.pie { font-size: 13px; margin-top: 24px; }
+.stApp .pie { color: #A39C88; }
+div[data-testid="stMetric"] { background: rgba(38,74,53,0.75); border: 1px solid rgba(232,220,196,0.14); border-radius: 18px; padding: 14px 16px; }
+div[data-testid="stMetricValue"] { font-family: 'Instrument Sans', sans-serif; }
+
 /* ---- Colores forzados: la app se ve igual aunque falte .streamlit/config.toml ---- */
 .stApp, .stApp p, .stApp li, .stApp span, .stApp label, .stApp summary, .stApp small,
-.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 { color: #E6EEFF; }
-.stApp [data-testid="stCaptionContainer"], .stApp [data-testid="stCaptionContainer"] * { color: #8A97B8; }
-.stApp [data-testid="stMetricLabel"], .stApp [data-testid="stMetricLabel"] * { color: #B9C6E4; }
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 { color: #E8DCC4; }
+.stApp .titulo span { color: #8B5CF6; } .stApp .titulo .chispa { color: #FFFFFF; } .stApp .sello { color: #FFFFFF; }
+.stApp [data-testid="stCaptionContainer"], .stApp [data-testid="stCaptionContainer"] * { color: #A39C88; }
+.stApp [data-testid="stMetricLabel"], .stApp [data-testid="stMetricLabel"] * { color: #CFC4AC; }
 .stApp [data-testid="stMetricValue"], .stApp [data-testid="stMetricValue"] * { color: #FFFFFF; }
-.stApp .titulo span { color: #0A2A6E; -webkit-text-stroke: 1.6px #00E5FF; }
-.stApp .fila-b span { color: #B9C6E4; }
-.stApp .badge.b-alta { color: #39FF88; } .stApp .badge.b-media { color: #00E5FF; } .stApp .badge.b-baja { color: #9AA3B5; }
-.stApp button[data-baseweb="tab"] p { color: #8A97B8; }
-.stApp button[data-baseweb="tab"][aria-selected="true"] p { color: #00E5FF; }
-div[data-baseweb="tab-border"] { background-color: rgba(0,229,255,0.15) !important; }
+.stApp [data-testid="stMetricDelta"] { background: rgba(139,92,246,0.18) !important; }
+.stApp [data-testid="stMetricDelta"] * { color: #C9B5FF !important; fill: #C9B5FF !important; }
+div[data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: visible !important; row-gap: 8px; }
+/* botones */
+.stApp button[data-testid^="stBaseButton-primary"], .stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
+  background: #8B5CF6 !important; border: 0 !important; border-radius: 999px !important; padding: 0.55rem 1.4rem !important;
+  box-shadow: 0 8px 24px rgba(139,92,246,0.45); }
+.stApp button[data-testid^="stBaseButton-primary"]:hover { background: #7A4AF0 !important; box-shadow: 0 10px 30px rgba(139,92,246,0.6); }
+.stApp button[data-testid^="stBaseButton-primary"] * { color: #FFFFFF !important; font-weight: 600; }
+.stApp button[data-testid="stBaseButton-secondary"] { background: rgba(139,92,246,0.14) !important; border: 1px solid rgba(182,156,255,0.45) !important;
+  border-radius: 999px !important; }
+.stApp button[data-testid="stBaseButton-secondary"] * { color: #E8DCC4 !important; }
 /* pills y control segmentado */
+.stApp button[data-variant="pills"], .stApp button[data-variant="segmented_control"],
 .stApp button[data-testid="stBaseButton-pills"], .stApp button[data-testid="stBaseButton-segmented_control"] {
-  background: rgba(13,23,53,0.9) !important; border: 1px solid rgba(0,229,255,0.28) !important; }
-.stApp button[data-testid="stBaseButton-pills"] *, .stApp button[data-testid="stBaseButton-segmented_control"] * { color: #E6EEFF !important; }
+  background: rgba(21,41,29,0.6) !important; border: 1px solid rgba(232,220,196,0.25) !important; }
+.stApp button[data-variant="pills"] *, .stApp button[data-variant="segmented_control"] *,
+.stApp button[data-testid="stBaseButton-pills"] *, .stApp button[data-testid="stBaseButton-segmented_control"] * { color: #E8DCC4 !important; }
+.stApp button[data-variant="pills"][aria-pressed="true"], .stApp button[data-variant="segmented_control"][aria-checked="true"],
 .stApp button[data-testid="stBaseButton-pillsActive"], .stApp button[data-testid="stBaseButton-segmented_controlActive"] {
-  background: rgba(0,229,255,0.14) !important; border: 1px solid #00E5FF !important; box-shadow: 0 0 12px rgba(0,229,255,0.35); }
-.stApp button[data-testid="stBaseButton-pillsActive"] *, .stApp button[data-testid="stBaseButton-segmented_controlActive"] * { color: #00E5FF !important; }
+  background: #8B5CF6 !important; border: 1px solid #8B5CF6 !important; box-shadow: 0 6px 18px rgba(139,92,246,0.4); }
+.stApp button[data-variant="pills"][aria-pressed="true"] *, .stApp button[data-variant="segmented_control"][aria-checked="true"] *,
+.stApp button[data-testid="stBaseButton-pillsActive"] *, .stApp button[data-testid="stBaseButton-segmented_controlActive"] * { color: #FFFFFF !important; }
 /* radio */
-.stApp [data-testid="stRadioOption"] > div > div:first-child { background-color: #0D1735 !important; border: 2px solid rgba(0,229,255,0.6) !important; }
+.stApp [data-testid="stRadioOption"] > div > div:first-child { background-color: #15291D !important; border: 2px solid rgba(232,220,196,0.45) !important; }
 .stApp [data-testid="stRadioOption"] > div > div:first-child > div { background-color: transparent !important; }
-.stApp [data-testid="stRadioOption"][data-selected="true"] > div > div:first-child { border-color: #00E5FF !important; box-shadow: 0 0 10px rgba(0,229,255,0.6); }
-.stApp [data-testid="stRadioOption"][data-selected="true"] > div > div:first-child > div { background-color: #00E5FF !important; }
+.stApp [data-testid="stRadioOption"][data-selected="true"] > div > div:first-child { border-color: #8B5CF6 !important; }
+.stApp [data-testid="stRadioOption"][data-selected="true"] > div > div:first-child > div { background-color: #8B5CF6 !important; }
 /* campos de texto, número y listas */
-.stApp [data-baseweb="input"], .stApp [data-baseweb="base-input"], .stApp [data-baseweb="select"] > div, .stApp textarea, .stApp input {
-  background-color: #0D1735 !important; color: #E6EEFF !important; border-color: rgba(0,229,255,0.28) !important; }
-.stApp input::placeholder, .stApp textarea::placeholder { color: #6F7DA0 !important; }
-.stApp [data-baseweb="select"] svg, .stApp [data-testid="stNumberInput"] button svg { fill: #E6EEFF !important; color: #E6EEFF !important; }
-.stApp [data-testid="stNumberInput"] button { background-color: #13204A !important; }
-.stApp [data-baseweb="tag"] { background-color: rgba(154,163,181,0.16) !important; border: 1px solid rgba(154,163,181,0.5) !important; }
-.stApp [data-baseweb="tag"] * { color: #E6EEFF !important; }
-div[data-baseweb="popover"] ul, div[data-baseweb="popover"] li, div[data-baseweb="menu"] { background-color: #0D1735 !important; color: #E6EEFF !important; }
-div[data-baseweb="popover"] li:hover, div[data-baseweb="popover"] li[aria-selected="true"] { background-color: rgba(0,229,255,0.14) !important; }
-div[data-baseweb="popover"] * { color: #E6EEFF; }
-/* expanders, formularios y botones secundarios */
-.stApp [data-testid="stExpander"] details { background: rgba(13,23,53,0.7); border: 1px solid rgba(0,229,255,0.22) !important; border-radius: 14px; }
-.stApp [data-testid="stExpander"] summary:hover * { color: #00E5FF; }
-.stApp [data-testid="stForm"] { border: 1px solid rgba(0,229,255,0.22); background: rgba(13,23,53,0.45); border-radius: 18px; }
-.stApp button[data-testid="stBaseButton-secondary"] { background: transparent !important; border: 1px solid rgba(0,229,255,0.4) !important; }
-.stApp button[data-testid="stBaseButton-secondary"] * { color: #E6EEFF !important; }
-.stApp button[data-testid^="stBaseButton-primary"] { background: linear-gradient(90deg, #00E5FF, #2FA8FF) !important; border: 0 !important;
-  box-shadow: 0 0 18px rgba(0,229,255,0.45); }
-.stApp button[data-testid^="stBaseButton-primary"] * { color: #060B1E !important; font-weight: 700; }
-.stApp [data-testid="stSlider"] [role="slider"] { background-color: #00E5FF !important; box-shadow: 0 0 10px rgba(0,229,255,0.7); }
-.stApp [data-testid="stTooltipIcon"] svg { stroke: #8A97B8 !important; }
-.stApp [data-testid="stAlert"] * { color: #E6EEFF; }
-.stApp [data-testid="stCheckbox"] label span:first-child { border-color: #00E5FF !important; }
-/* Streamlit 1.5x+ (react-aria): pills, control segmentado, multiselect y selectbox */
-.stApp button[data-variant="pills"], .stApp button[data-variant="segmented_control"] {
-  background: rgba(13,23,53,0.9) !important; border: 1px solid rgba(0,229,255,0.28) !important; color: #E6EEFF !important; }
-.stApp button[data-variant="pills"] *, .stApp button[data-variant="segmented_control"] * { color: #E6EEFF !important; }
-.stApp button[data-variant="pills"][aria-pressed="true"], .stApp button[data-variant="segmented_control"][aria-checked="true"] {
-  background: rgba(0,229,255,0.14) !important; border: 1px solid #00E5FF !important; box-shadow: 0 0 12px rgba(0,229,255,0.35); }
-.stApp button[data-variant="pills"][aria-pressed="true"] *, .stApp button[data-variant="segmented_control"][aria-checked="true"] * { color: #00E5FF !important; }
-.stApp [data-testid="stMultiSelect"] [role="group"], .stApp [data-testid="stSelectbox"] [role="group"],
-.stApp [data-testid="stSelectbox"] button, .stApp [data-testid="stMultiSelect"] input {
-  background-color: #0D1735 !important; border-color: rgba(0,229,255,0.28) !important; color: #E6EEFF !important; }
+.stApp [data-baseweb="input"], .stApp [data-baseweb="base-input"], .stApp [data-baseweb="select"] > div, .stApp textarea, .stApp input,
+.stApp [data-testid="stMultiSelect"] [role="group"], .stApp [data-testid="stSelectbox"] [role="group"], .stApp [data-testid="stSelectbox"] button {
+  background-color: #15291D !important; color: #E8DCC4 !important; border-color: rgba(232,220,196,0.22) !important; }
+.stApp input::placeholder, .stApp textarea::placeholder { color: #8B8676 !important; }
+.stApp [data-baseweb="select"] svg, .stApp [data-testid="stNumberInput"] button svg { fill: #E8DCC4 !important; color: #E8DCC4 !important; }
+.stApp [data-testid="stNumberInput"] button { background-color: #264A35 !important; }
 .stApp [data-testid="stMultiSelectTagsContainer"] [role="group"] { background: transparent !important; }
-.stApp [data-testid="stMultiSelectTagsContainer"] > span > span { background-color: rgba(154,163,181,0.16) !important;
-  border: 1px solid rgba(154,163,181,0.5) !important; }
-.stApp [data-testid="stMultiSelectTagsContainer"] > span > span * { color: #E6EEFF !important; }
-[role="listbox"], [role="option"] { background-color: #0D1735 !important; color: #E6EEFF !important; }
-[role="option"]:hover, [role="option"][aria-selected="true"], [role="option"][data-focused="true"] { background-color: rgba(0,229,255,0.16) !important; }
-[role="listbox"] * { color: #E6EEFF !important; }
-.stApp [data-testid="stTabs"] .react-aria-SelectionIndicator { background: #00E5FF !important;
-  border-color: transparent !important; box-shadow: 0 0 10px rgba(0,229,255,0.8); }
-.stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"] *, .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] * { color: #00E5FF !important; }
-.stApp [data-testid="stMetricDelta"] { background: rgba(57,255,136,0.10) !important; }
-.stApp [data-testid="stMetricDelta"] * { color: #39FF88 !important; fill: #39FF88 !important; }
-/* navegación principal: pestañas grandes tipo botón */
-.stApp [data-testid="stTabs"] [role="tablist"] { gap: 12px; flex-wrap: wrap; border: 0 !important; padding: 6px 0 14px; }
-.stApp [data-testid="stTabs"] [role="tab"] { flex: 1 1 200px; min-height: 64px; padding: 14px 22px !important; justify-content: flex-start;
-  background: rgba(13,23,53,0.85) !important; border: 1px solid rgba(154,163,181,0.30) !important; border-radius: 16px !important;
+.stApp [data-baseweb="tag"], .stApp [data-testid="stMultiSelectTagsContainer"] > span > span {
+  background-color: rgba(139,92,246,0.22) !important; border: 1px solid rgba(182,156,255,0.55) !important; border-radius: 999px !important; }
+.stApp [data-baseweb="tag"] *, .stApp [data-testid="stMultiSelectTagsContainer"] > span > span * { color: #EDE6FF !important; }
+div[data-baseweb="popover"] ul, div[data-baseweb="popover"] li, div[data-baseweb="menu"], [role="listbox"], [role="option"] {
+  background-color: #15291D !important; color: #E8DCC4 !important; }
+div[data-baseweb="popover"] li:hover, [role="option"]:hover, [role="option"][aria-selected="true"], [role="option"][data-focused="true"] {
+  background-color: rgba(139,92,246,0.25) !important; }
+div[data-baseweb="popover"] *, [role="listbox"] * { color: #E8DCC4 !important; }
+/* expanders, formularios, slider, avisos */
+.stApp [data-testid="stExpander"] details { background: rgba(21,41,29,0.6); border: 1px solid rgba(232,220,196,0.16) !important; border-radius: 16px; }
+.stApp [data-testid="stExpander"] summary:hover * { color: #B69CFF; }
+.stApp [data-testid="stForm"] { border: 1px solid rgba(232,220,196,0.16); background: rgba(21,41,29,0.45); border-radius: 20px; }
+.stApp [data-testid="stSlider"] [role="slider"] { background-color: #8B5CF6 !important; box-shadow: 0 0 0 4px rgba(139,92,246,0.25); }
+.stApp [data-testid="stTooltipIcon"] svg { stroke: #A39C88 !important; }
+.stApp [data-testid="stAlert"] * { color: #E8DCC4; }
+.stApp [data-testid="stCheckbox"] label span:first-child { border-color: #B69CFF !important; }
+/* navegación principal: botones grandes */
+.stApp [data-testid="stTabs"] [role="tablist"] { gap: 12px; flex-wrap: wrap; border: 0 !important; padding: 6px 0 16px; }
+.stApp [data-testid="stTabs"] [role="tab"] { flex: 1 1 200px; min-height: 64px; padding: 14px 24px !important; justify-content: center;
+  background: rgba(21,41,29,0.65) !important; border: 1px solid rgba(232,220,196,0.22) !important; border-radius: 999px !important;
   transition: border-color .2s, box-shadow .2s, background .2s; }
-.stApp [data-testid="stTabs"] [role="tab"] p { font-family: 'Space Grotesk', sans-serif !important; font-size: 20px !important;
-  font-weight: 700 !important; color: #C9D1E0 !important; }
-.stApp [data-testid="stTabs"] [role="tab"]:hover { border-color: rgba(0,229,255,0.6) !important; }
+.stApp [data-testid="stTabs"] [role="tab"] p { font-family: 'Instrument Sans', sans-serif !important; font-size: 20px !important;
+  font-weight: 600 !important; color: #E8DCC4 !important; }
+.stApp [data-testid="stTabs"] [role="tab"]:hover { border-color: rgba(182,156,255,0.7) !important; }
 .stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"], .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] {
-  background: rgba(0,229,255,0.12) !important; border-color: #00E5FF !important; box-shadow: 0 0 22px rgba(0,229,255,0.28); }
-.stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"] p, .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] p { color: #00E5FF !important; }
+  background: #8B5CF6 !important; border-color: #8B5CF6 !important; box-shadow: 0 10px 28px rgba(139,92,246,0.45); }
+.stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"] p, .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] p { color: #FFFFFF !important; }
 .stApp [data-testid="stTabs"] .react-aria-SelectionIndicator, div[data-baseweb="tab-highlight"], div[data-baseweb="tab-border"] { display: none !important; }
 /* encuesta y tarjeta de perfil */
-.encuesta, .perfil-card { border: 1px solid rgba(0,229,255,0.28); border-radius: 20px; padding: 22px 26px; margin: 6px 0 14px;
-  background: linear-gradient(135deg, rgba(13,23,53,0.95), rgba(26,34,56,0.85)); }
-.kicker { color: #9AA3B5 !important; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
-.encuesta h3 { margin: 4px 0 6px; font-size: 26px; }
-.encuesta p, .perfil-card p { color: #C9D1E0 !important; margin: 0; max-width: 820px; }
-.perfil-tipo { font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 700; color: #00E5FF;
-  text-shadow: 0 0 16px rgba(0,229,255,0.45); margin: 2px 0 6px; }
+.encuesta, .perfil-card { border: 1px solid rgba(232,220,196,0.16); border-radius: 24px; padding: 22px 26px; margin: 6px 0 14px;
+  background: radial-gradient(600px 200px at 100% 0%, rgba(139,92,246,0.22), transparent 70%), rgba(21,41,29,0.7); }
+.stApp .kicker { color: #B69CFF; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+.encuesta h3 { margin: 4px 0 6px; font-size: 28px; }
+.stApp .encuesta p, .stApp .perfil-card p { color: #E8DCC4; opacity: .88; margin: 0; max-width: 820px; }
+.perfil-tipo { font-family: 'Instrument Sans', sans-serif; font-size: 38px; font-weight: 700; margin: 2px 0 6px; }
+.stApp .perfil-tipo { color: #B69CFF; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
-.stApp .chips span { background: rgba(154,163,181,0.12); border: 1px solid rgba(154,163,181,0.35); border-radius: 999px;
-  padding: 5px 12px; font-size: 13px; color: #C9D1E0; }
+.stApp .chips span { background: rgba(232,220,196,0.08); border: 1px solid rgba(232,220,196,0.25); border-radius: 999px;
+  padding: 5px 12px; font-size: 13px; color: #E8DCC4; }
 .stApp .chips span b { color: #FFFFFF; }
-.perfil-card .nota { color: #8A97B8 !important; font-size: 13px; }
-.stApp [data-testid="stForm"] [data-testid="stRadio"] { background: rgba(42,49,66,0.35); border: 1px solid rgba(154,163,181,0.18);
-  border-radius: 14px; padding: 12px 14px; margin-bottom: 6px; width: 100%; box-sizing: border-box; }
-@media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+.stApp .perfil-card .nota { color: #A39C88; font-size: 13px; opacity: 1; }
+.stApp [data-testid="stForm"] [data-testid="stRadio"] { background: rgba(38,74,53,0.45); border: 1px solid rgba(232,220,196,0.14);
+  border-radius: 16px; padding: 12px 14px; margin-bottom: 6px; width: 100%; box-sizing: border-box; }
+.stApp .card.destacada .badge.b-alta { background: #FFFFFF; border-color: #FFFFFF; color: #6A3FD9 !important; }
+.stApp [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stRadio"]) { width: 100% !important; }
+@media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
 </style>
 """, unsafe_allow_html=True)
 
 pio.templates["radar"] = go.layout.Template(layout=dict(
     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter, sans-serif", color=BEIGE, size=13),
-    colorway=[CIAN, GRIS1, VERDE, GRIS2, VIOLETA, GRIS3],
+    font=dict(family="Inter, sans-serif", color=ARENA, size=13),
+    colorway=[MORADO, ARENA, SALVIA, LILA, ARENA_TENUE, MORADO_OSC],
     xaxis=dict(gridcolor=LINEA, zerolinecolor=LINEA, linecolor=LINEA, automargin=True),
     yaxis=dict(gridcolor=LINEA, zerolinecolor=LINEA, linecolor=LINEA, automargin=True),
-    legend=dict(bgcolor="rgba(0,0,0,0)"), hoverlabel=dict(bgcolor=PANEL, font_color=BEIGE),
+    legend=dict(bgcolor="rgba(0,0,0,0)"), hoverlabel=dict(bgcolor=BOSQUE_OSC, font_color=ARENA),
     margin=dict(l=10, r=10, t=30, b=10)))
 pio.templates.default = "radar"
-ESCALA = [[0, GRIS3], [0.5, CIAN], [1, VERDE]]  # bajo → alto
+ESCALA = [[0, "#4E7A5E"], [0.5, ARENA], [1, MORADO]]  # bajo → alto
 
 # ---------------------------------------------------------------------------
 # Universos (símbolos de Yahoo Finance)
@@ -490,7 +491,9 @@ def dinero(x: float, moneda: str) -> str:
 # ---------------------------------------------------------------------------
 st.markdown("""
 <div class="hero">
-  <div class="titulo">Radar de <span>inversión</span></div>
+  <div class="sello">Datos<br>en vivo</div>
+  <div class="rutas"><span>→ Oportunidades</span><span>→ Valoración</span><span>→ Portafolio óptimo</span></div>
+  <div class="titulo"><span class="chispa">✦</span>Radar de <span>inversión</span></div>
   <p>Encuentra acciones y criptomonedas interesantes, entiende si su precio tiene sentido y descubre
   cómo repartir tu dinero entre ellas. Sin necesidad de ser experto.</p>
 </div>
@@ -675,9 +678,9 @@ with tab1:
         if len(df):
             st.markdown("### Las 5 mejores oportunidades según tu estilo")
             cols = st.columns(min(5, len(df)))
-            for col, (_, f) in zip(cols, df.head(5).iterrows()):
-                col.markdown(f"""<div class="card"><div class="sub">{esc(f['Ticker'])} · {esc(f['Sector'])}</div>
-                    <h4>{esc(f['Nombre'])[:28]}</h4><div class="big">{f['Puntaje']:.0f}<span style="font-size:15px;color:{MUTED}">/100</span></div>
+            for k, (col, (_, f)) in enumerate(zip(cols, df.head(5).iterrows())):
+                col.markdown(f"""<div class="card{' destacada' if k == 0 else ''}"><div class="sub">{esc(f['Ticker'])} · {esc(f['Sector'])}</div>
+                    <h4>{esc(f['Nombre'])[:28]}</h4><div class="big">{f['Puntaje']:.0f}<span class="de">/100</span></div>
                     {etiqueta(f['Puntaje'])}<div style="margin-top:12px">{barras_bloques(f)}</div>
                     <div class="sub" style="margin:6px 0 0">{esc(por_que(f))}</div></div>""", unsafe_allow_html=True)
 
@@ -691,8 +694,8 @@ with tab1:
                 hovertemplate="<b>%{customdata[0]}</b><br>Precio atractivo %{x:.0f} · Solidez %{y:.0f}<br>Puntaje %{customdata[1]:.0f}<extra></extra>",
                 marker=dict(size=np.sqrt(tam / tam.max()) * 46 + 8, color=df["Puntaje"], colorscale=ESCALA, cmin=20, cmax=80,
                             line=dict(color=NAVY, width=1), opacity=0.9, colorbar=dict(title="Puntaje"))))
-            fig.add_shape(type="rect", x0=50, x1=100, y0=50, y1=100, fillcolor="rgba(57,255,136,0.06)", line_width=0, layer="below")
-            fig.add_annotation(x=98, y=98, text="Baratas y sólidas", showarrow=False, xanchor="right", font=dict(color=VERDE))
+            fig.add_shape(type="rect", x0=50, x1=100, y0=50, y1=100, fillcolor="rgba(139,92,246,0.10)", line_width=0, layer="below")
+            fig.add_annotation(x=98, y=98, text="Baratas y sólidas", showarrow=False, xanchor="right", font=dict(color=LILA))
             fig.update_layout(height=460, xaxis=dict(title="Precio atractivo →", range=[0, 102]),
                               yaxis=dict(title="Solidez del negocio →", range=[0, 102]))
             st.plotly_chart(fig, width="stretch", theme=None)
@@ -733,7 +736,7 @@ with tab1:
                 vol = "—" if pd.isna(f["Volatilidad"]) else f"{f['Volatilidad']:.0%}"
                 dd = "—" if pd.isna(f["Caída máx. 1a"]) else f"{f['Caída máx. 1a']:.0%}"
                 cols[i % len(cols)].markdown(f"""<div class="card"><div class="sub">{esc(f['Ticker'])}</div><h4>{esc(f['Nombre'])}</h4>
-                    <div class="big">{f['Precio']:,.2f}<span style="font-size:14px;color:{MUTED}"> USD</span></div>
+                    <div class="big">{f['Precio']:,.2f}<span class="de"> USD</span></div>
                     <ul><li>Últimos 6 meses: <b>{r6}</b></li><li>Altibajos al año: <b>{vol}</b></li>
                     <li>Peor caída del último año: <b>{dd}</b></li></ul></div>""", unsafe_allow_html=True)
 
@@ -764,7 +767,7 @@ with tab2:
                              else "parece estar en un <b>precio justo</b>")
                 st.markdown(f"""<div class="card"><div class="sub">{esc(sel)} · {esc(fila['Sector'])}</div><h4>{esc(fila['Nombre'])}</h4>
                     <div class="big">{gap:+.0%}</div>{etiqueta(fila['Puntaje'])}
-                    <p style="margin:10px 0 0;color:#C9D4EE">Frente a empresas similares, esta acción {veredicto}.
+                    <p style="margin:10px 0 0">Frente a empresas similares, esta acción {veredicto}.
                     Si se valorara igual que ellas, costaría cerca de <b>{med:,.2f} {esc(fila['Moneda'])}</b>
                     (hoy: {fila['Precio']:,.2f}).</p>
                     <div style="margin-top:14px">{barras_bloques(fila)}</div></div>""", unsafe_allow_html=True)
@@ -779,14 +782,14 @@ with tab2:
             if len(val):
                 st.markdown("##### ¿Cuánto valdría según cada forma de medir?")
                 fig = go.Figure(go.Bar(y=val["Método"], x=val["Precio implícito"], orientation="h",
-                                       marker_color=np.where(val["Upside"] >= 0, VERDE, GRIS3),
+                                       marker_color=np.where(val["Upside"] >= 0, MORADO, SALVIA),
                                        text=[f"{v:,.2f} ({u:+.0%})" for v, u in zip(val["Precio implícito"], val["Upside"])],
                                        textposition="outside", cliponaxis=False))
                 fig.add_vline(x=fila["Precio"], line_color=BEIGE, line_width=2, line_dash="dot",
                               annotation_text="precio hoy", annotation_font_color=BEIGE)
                 fig.update_layout(height=330, xaxis_title=f"Precio por acción ({fila['Moneda']})", margin=dict(r=120))
                 st.plotly_chart(fig, width="stretch", theme=None)
-                st.caption("Verde: valdría más que hoy. Gris: valdría menos. Cada barra usa un múltiplo distinto "
+                st.caption("Morado: valdría más que hoy. Verde salvia: valdría menos. Cada barra usa un múltiplo distinto "
                            "(P/E = precio/utilidad, P/B = precio/patrimonio, P/S = precio/ventas, EV/EBITDA = valor empresa/flujo operativo).")
 
         st.markdown("##### Sus números frente a los comparables, en palabras simples")
@@ -919,7 +922,7 @@ with tab3:
                 st.warning(f"Dejé por fuera (poca historia de precios): {', '.join(o['excluidos'])}")
             if (mu < rf).all():
                 st.warning("Todos los activos rindieron menos que la tasa libre de riesgo en este periodo; el portafolio de Sharpe será 'el menos malo'.")
-            colores = {"Máximo Sharpe": CIAN, "Mínima varianza": GRIS1}
+            colores = {"Máximo Sharpe": MORADO, "Mínima varianza": ARENA}
             columnas = st.columns(2, gap="large")
             for col, (nombre, w) in zip(columnas, o["w"].items()):
                 r, v, s = M._stats(w.values, mu.values, cov.values, rf)
@@ -927,8 +930,8 @@ with tab3:
                 asig = asig[asig["Peso objetivo"] > 0].sort_values("Peso objetivo", ascending=False)
                 with col:
                     st.markdown(f"<h3>{'🎯' if nombre == 'Máximo Sharpe' else '🛡️'} {nombre} {sello(nombre)}</h3>", unsafe_allow_html=True)
-                    pal = ([CIAN, GRIS1, VERDE, GRIS3, "#7CF5FF", GRIS2, "#1F8FA3"] if nombre == "Máximo Sharpe"
-                           else [GRIS1, CIAN, GRIS3, VERDE, GRIS2, "#7CF5FF", "#3B4457"])
+                    pal = ([MORADO, LILA, ARENA, SALVIA, MORADO_OSC, ARENA_TENUE, "#4E7A5E"] if nombre == "Máximo Sharpe"
+                           else [ARENA, SALVIA, MORADO, ARENA_TENUE, LILA, "#4E7A5E", MORADO_OSC])
                     fig = go.Figure(go.Pie(labels=[t.replace(".CL", "") for t in asig.index], values=asig["Peso objetivo"], hole=0.62, sort=False,
                                            marker=dict(colors=pal * 5, line=dict(color=NAVY, width=2)),
                                            textinfo="label+percent", textposition="outside",
@@ -962,14 +965,14 @@ with tab3:
 
             st.markdown("### ¿Dónde quedan tus portafolios frente a todas las combinaciones posibles?")
             st.markdown('<div class="explica">Cada punto pequeño es una forma distinta de repartir tu dinero. Más a la derecha = más altibajos; '
-                        'más arriba = más rendimiento. La <b>línea verde</b> es la frontera eficiente: las mejores combinaciones posibles '
+                        'más arriba = más rendimiento. La <b>línea beige</b> es la frontera eficiente: las mejores combinaciones posibles '
                         'para cada nivel de riesgo (respetando el máximo por activo). Tus dos portafolios están sobre ella.</div>', unsafe_allow_html=True)
             fr = M.frontera(mu, cov, o["cap"])
             rnd = M.portafolios_aleatorios(mu, cov, rf, cap=o["cap"])
             fig = go.Figure()
             fig.add_scatter(x=rnd["Volatilidad"], y=rnd["Retorno"], mode="markers", name="Combinaciones posibles", hoverinfo="skip",
                             marker=dict(size=4, color=rnd["Sharpe"], colorscale=ESCALA, opacity=0.35, showscale=False))
-            fig.add_scatter(x=fr["Volatilidad"], y=fr["Retorno"], mode="lines", name="Frontera eficiente", line=dict(color=VERDE, width=3))
+            fig.add_scatter(x=fr["Volatilidad"], y=fr["Retorno"], mode="lines", name="Frontera eficiente", line=dict(color=ARENA, width=3))
             vols = np.sqrt(np.diag(cov.values))
             fig.add_scatter(x=vols, y=mu.values, mode="markers+text", text=[t.replace(".CL", "") for t in mu.index],
                             textposition="top center", name="Cada activo solo", marker=dict(size=9, color=MUTED, symbol="diamond"))
@@ -988,7 +991,7 @@ with tab3:
             if o["mkt"] is not None:
                 cum["S&P 500"] = (1 + o["mkt"]).cumprod() * 100
             fig = go.Figure()
-            for c, color in zip(cum, [CIAN, GRIS1, GRIS3, VERDE]):
+            for c, color in zip(cum, [MORADO, ARENA, ARENA_TENUE, SALVIA]):
                 fig.add_scatter(x=cum.index, y=cum[c], name=c, mode="lines",
                                 line=dict(color=color, width=3 if c in o["w"] else 1.6, dash="solid" if c in o["w"] else "dot"))
             fig.update_layout(height=380, yaxis_title="Valor de cada 100 invertidos", legend=dict(orientation="h", y=-0.18))
