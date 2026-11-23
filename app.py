@@ -68,7 +68,7 @@ h1, h2, h3, h4 { font-family: 'Inter Tight', sans-serif !important; font-weight:
 .beneficios div { font-size: 13px; line-height: 1.35; position: relative; padding-top: 4px; }
 .beneficios div:first-child:before { content: ""; position: absolute; top: -17px; left: 0; width: 60%; height: 2px; background: #FF6B5B; }
 .beneficios i { display: block; font-style: normal; font-size: 15px; margin-bottom: 4px; }
-@media (max-width: 760px) { .beneficios { grid-template-columns: repeat(2, minmax(0,1fr)); } .sello { display: none; } .hero .rutas { margin-bottom: 36px; } }
+@media (max-width: 760px) { .hero .rutas { flex-wrap: wrap; border-radius: 18px; } .beneficios { grid-template-columns: repeat(2, minmax(0,1fr)); } .sello { display: none; } .hero .rutas { margin-bottom: 36px; } }
 
 /* tarjetas de vidrio */
 .card { background: rgba(29,46,82,0.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
@@ -199,6 +199,41 @@ div[data-baseweb="popover"] *, [role="listbox"] * { color: #F4EDE0 !important; }
 .card.reco.sugerencia { border-left: 3px solid #F4EDE0; }
 .card.reco.bien { border-left: 3px solid #7D9BD1; }
 .stApp .card.reco p { opacity: .9; font-size: 14.5px; }
+/* ---- animaciones ---- */
+.hero > *:not(.hero-graf):not(.sello) { position: relative; z-index: 1; }
+.sello { z-index: 2; }
+.hero-graf { position: absolute; right: 26px; top: 64px; width: 47%; height: 230px; z-index: 0; pointer-events: none; overflow: visible; }
+.hero-graf .guia { stroke: rgba(244,237,224,0.12); stroke-dasharray: 3 6; }
+.hero-graf .linea { fill: none; stroke: #FF6B5B; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1000; stroke-dashoffset: 1000; filter: drop-shadow(0 0 8px rgba(255,107,91,0.65));
+  animation: trazo 2.6s cubic-bezier(.65,0,.35,1) .35s forwards; }
+.hero-graf .linea2 { fill: none; stroke: #7D9BD1; stroke-width: 2; stroke-dasharray: 1000; stroke-dashoffset: 1000; opacity: .7;
+  animation: trazo 3.2s cubic-bezier(.65,0,.35,1) .6s forwards; }
+.hero-graf .area { opacity: 0; animation: aparecer 1.4s ease 1.7s forwards; }
+.hero-graf .punto { opacity: 0; transform-origin: 594px 34px; animation: aparecer .4s ease 2.8s forwards, latido 2.2s ease-in-out 3.2s infinite; }
+.hero-graf .halo { opacity: 0; transform-origin: 594px 34px; animation: onda 2.2s ease-out 3.2s infinite; }
+.titulo, .hero p { animation: subir .9s cubic-bezier(.2,.7,.2,1) both; }
+.hero p { animation-delay: .15s; }
+.beneficios div:first-child:before { animation: crecer 1.2s ease 1s both; }
+.sello { animation: latido 2.6s ease-in-out 1s infinite; }
+.card { animation: subir .7s cubic-bezier(.2,.7,.2,1) both; }
+div[data-testid="stMetric"] { animation: subir .6s cubic-bezier(.2,.7,.2,1) both; }
+.encuesta, .perfil-card { animation: subir .7s cubic-bezier(.2,.7,.2,1) both; }
+.barra > div { transform-origin: left; animation: llenar 1.1s cubic-bezier(.2,.7,.2,1) .3s both; }
+@keyframes trazo { to { stroke-dashoffset: 0; } }
+@keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
+@keyframes latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@keyframes onda { 0% { opacity: .55; transform: scale(1); } 100% { opacity: 0; transform: scale(3.2); } }
+@keyframes subir { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes crecer { from { width: 0; } to { width: 60%; } }
+@keyframes llenar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (max-width: 1100px) { .hero-graf { width: 70%; opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+  .hero-graf .linea, .hero-graf .linea2 { animation: none; stroke-dashoffset: 0; }
+  .hero-graf .area, .hero-graf .punto { animation: none; opacity: 1; } .hero-graf .halo { display: none; }
+  .titulo, .hero p, .card, div[data-testid="stMetric"], .encuesta, .perfil-card, .barra > div, .sello,
+  .beneficios div:first-child:before { animation: none !important; }
+}
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
 </style>
 """, unsafe_allow_html=True)
@@ -517,6 +552,16 @@ def dinero(x: float, moneda: str) -> str:
 # ---------------------------------------------------------------------------
 st.markdown("""
 <div class="hero">
+  <svg class="hero-graf" viewBox="0 0 600 240" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id="relleno-hero" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF6B5B" stop-opacity="0.35"/><stop offset="1" stop-color="#FF6B5B" stop-opacity="0"/></linearGradient></defs>
+    <line class="guia" x1="0" y1="60" x2="600" y2="60"/><line class="guia" x1="0" y1="130" x2="600" y2="130"/><line class="guia" x1="0" y1="200" x2="600" y2="200"/>
+    <polygon class="area" points="0,206 38,198 76,203 114,182 152,188 190,164 228,171 266,146 304,152 342,124 380,131 418,102 456,108 494,78 532,84 570,52 594,34 594,240 0,240" fill="url(#relleno-hero)"/>
+    <polyline class="linea2" pathLength="1000" points="0,214 50,208 100,210 150,196 200,199 250,185 300,186 350,170 400,172 450,158 500,152 550,140 594,128"/>
+    <polyline class="linea" pathLength="1000" points="0,206 38,198 76,203 114,182 152,188 190,164 228,171 266,146 304,152 342,124 380,131 418,102 456,108 494,78 532,84 570,52 594,34"/>
+    <circle class="halo" cx="594" cy="34" r="7" fill="none" stroke="#FF6B5B" stroke-width="2"/>
+    <circle class="punto" cx="594" cy="34" r="6.5" fill="#FF6B5B" stroke="#F4EDE0" stroke-width="2"/>
+  </svg>
   <div class="sello">Datos en vivo</div>
   <div class="rutas"><span>Oportunidades</span><span>Valoración</span><span>Portafolio</span><span>Seguimiento</span></div>
   <div class="titulo">Radar de <span>inversión</span>.</div>
@@ -711,7 +756,7 @@ with tab1:
             st.markdown("### Las 5 mejores oportunidades según tu estilo")
             cols = st.columns(min(5, len(df)))
             for k, (col, (_, f)) in enumerate(zip(cols, df.head(5).iterrows())):
-                col.markdown(f"""<div class="card{' destacada' if k == 0 else ''}"><div class="sub">{esc(f['Ticker'])} · {esc(f['Sector'])}</div>
+                col.markdown(f"""<div class="card{' destacada' if k == 0 else ''}" style="animation-delay:{k * 0.09:.2f}s"><div class="sub">{esc(f['Ticker'])} · {esc(f['Sector'])}</div>
                     <h4>{esc(f['Nombre'])[:28]}</h4><div class="big">{f['Puntaje']:.0f}<span class="de">/100</span></div>
                     {etiqueta(f['Puntaje'])}<div style="margin-top:12px">{barras_bloques(f)}</div>
                     <div class="sub" style="margin:6px 0 0">{esc(por_que(f))}</div></div>""", unsafe_allow_html=True)
