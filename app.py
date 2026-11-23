@@ -21,11 +21,12 @@ import motor as M
 st.set_page_config(page_title="Radar · Inversión inteligente", page_icon="📡", layout="wide")
 
 # ---------------------------------------------------------------------------
-# Identidad visual: azul noche + neón (cian, rosa, verde)
+# Identidad visual: azul noche + cian neón + grises (violeta solo en el título; verde = positivo)
 # ---------------------------------------------------------------------------
-CIAN, ROSA, VERDE = "#00E5FF", "#FF2E97", "#39FF88"
+CIAN, VERDE, VIOLETA = "#00E5FF", "#39FF88", "#AE65B6"
+GRIS1, GRIS2, GRIS3, GRIS4 = "#C9D1E0", "#9AA3B5", "#5B6478", "#2A3142"
 NAVY, PANEL, TEXTO, MUTED, LINEA = "#060B1E", "#0D1735", "#E6EEFF", "#8A97B8", "rgba(0,229,255,0.10)"
-NARANJA, AZUL, BEIGE = ROSA, CIAN, TEXTO  # alias: rosa = máximo Sharpe, cian = mínima varianza
+NARANJA, AZUL, BEIGE = CIAN, GRIS1, TEXTO  # cian = máximo Sharpe, gris claro = mínima varianza
 
 st.markdown("""
 <style>
@@ -33,7 +34,7 @@ st.markdown("""
 html, body, [class*="css"], .stMarkdown, p, li, label, input, textarea { font-family: 'Inter', sans-serif; }
 h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spacing: -0.02em; }
 .stApp { background:
-  radial-gradient(900px 480px at 105% -10%, rgba(255,46,151,0.16), transparent 60%),
+  radial-gradient(900px 480px at 105% -10%, rgba(154,163,181,0.12), transparent 60%),
   radial-gradient(800px 480px at -10% 5%, rgba(0,229,255,0.14), transparent 60%),
   radial-gradient(700px 400px at 50% 110%, rgba(57,255,136,0.08), transparent 60%),
   linear-gradient(rgba(0,229,255,0.035) 1px, transparent 1px) 0 0 / 44px 44px,
@@ -41,49 +42,43 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spa
 .block-container { padding-top: 1.6rem; max-width: 1280px; }
 .hero { border: 1px solid rgba(0,229,255,0.25); border-radius: 22px; padding: 28px 32px; position: relative; overflow: hidden;
   background: linear-gradient(135deg, rgba(13,23,53,0.92), rgba(6,11,30,0.88));
-  box-shadow: 0 0 0 1px rgba(255,46,151,0.08), 0 0 40px rgba(0,229,255,0.10), inset 0 0 60px rgba(0,229,255,0.04); margin-bottom: 8px; }
+  box-shadow: 0 0 0 1px rgba(154,163,181,0.10), 0 0 40px rgba(0,229,255,0.10), inset 0 0 60px rgba(0,229,255,0.04); margin-bottom: 8px; }
 .hero:before { content:""; position:absolute; left:0; right:0; top:0; height:2px;
-  background: linear-gradient(90deg, #00E5FF, #FF2E97, #39FF88); box-shadow: 0 0 14px #FF2E97; }
+  background: linear-gradient(90deg, #00E5FF, #9AA3B5 60%, #2A3142); box-shadow: 0 0 14px rgba(0,229,255,0.7); }
 .hero:after { content:""; position:absolute; right:-70px; top:-70px; width:260px; height:260px; border-radius:50%;
-  border: 2px solid rgba(255,46,151,0.55); box-shadow: 0 0 22px rgba(255,46,151,0.45), 0 0 0 28px rgba(0,229,255,0.07),
-  0 0 0 29px rgba(0,229,255,0.35), 0 0 0 66px rgba(57,255,136,0.04), 0 0 0 67px rgba(57,255,136,0.25); }
+  border: 2px solid rgba(0,229,255,0.55); box-shadow: 0 0 22px rgba(0,229,255,0.40), 0 0 0 28px rgba(154,163,181,0.06),
+  0 0 0 29px rgba(154,163,181,0.35), 0 0 0 66px rgba(57,255,136,0.04), 0 0 0 67px rgba(57,255,136,0.25); }
 .titulo { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size: clamp(32px, 4.4vw, 52px); line-height:1.05;
   color:#E6EEFF; margin:0 0 10px; letter-spacing:-0.02em; }
-.titulo span { background: linear-gradient(90deg, #00E5FF, #FF2E97 55%, #39FF88); -webkit-background-clip: text; background-clip: text;
-  color: transparent; filter: drop-shadow(0 0 12px rgba(255,46,151,0.45)); }
+.titulo span { color: #AE65B6; text-shadow: 0 0 18px rgba(174,101,182,0.55), 0 0 2px rgba(174,101,182,0.9); }
 .hero p { color:#B9C6E4; font-size: 17px; max-width: 760px; margin: 0; }
-.pasos { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
-.paso { background: rgba(0,229,255,0.06); border:1px solid rgba(0,229,255,0.30); border-radius: 999px;
-  padding: 6px 14px; font-size: 14px; color:#E6EEFF; }
-.paso b { color:#39FF88; margin-right:6px; text-shadow: 0 0 8px rgba(57,255,136,0.8); }
 .card { background: rgba(13,23,53,0.88); border: 1px solid rgba(0,229,255,0.16); border-radius: 18px; padding: 18px 20px; height: 100%;
   transition: border-color .2s, box-shadow .2s; }
-.card:hover { border-color: rgba(255,46,151,0.55); box-shadow: 0 0 24px rgba(255,46,151,0.18); }
+.card:hover { border-color: rgba(0,229,255,0.55); box-shadow: 0 0 24px rgba(0,229,255,0.16); }
 .card h4 { margin: 0 0 4px; font-size: 20px; color:#E6EEFF; }
 .card .sub { color:#8A97B8; font-size: 13px; margin-bottom: 10px; }
 .card .big { font-family:'Space Grotesk',sans-serif; font-size: 30px; font-weight:700; color:#E6EEFF; }
 .card ul { margin: 6px 0 0; padding-left: 18px; color:#C9D4EE; font-size: 14px; }
-.card.rosa { border-color: rgba(255,46,151,0.45); box-shadow: 0 0 26px rgba(255,46,151,0.12); }
-.card.cian { border-color: rgba(0,229,255,0.45); box-shadow: 0 0 26px rgba(0,229,255,0.12); }
+.card.sharpe { border-color: rgba(0,229,255,0.45); box-shadow: 0 0 26px rgba(0,229,255,0.12); }
+.card.minvar { border-color: rgba(201,209,224,0.40); box-shadow: 0 0 26px rgba(201,209,224,0.08); }
 .badge { display:inline-block; padding: 3px 10px; border-radius:999px; font-size:12px; font-weight:600; }
 .b-alta { background: rgba(57,255,136,0.12); color:#39FF88; border:1px solid rgba(57,255,136,0.6); box-shadow: 0 0 10px rgba(57,255,136,0.25); }
 .b-media { background: rgba(0,229,255,0.10); color:#00E5FF; border:1px solid rgba(0,229,255,0.5); }
-.b-baja { background: rgba(255,46,151,0.10); color:#FF6FB5; border:1px solid rgba(255,46,151,0.45); }
-.explica { border-left: 3px solid #FF2E97; background: rgba(255,46,151,0.06); padding: 14px 18px;
+.b-baja { background: rgba(154,163,181,0.12); color:#9AA3B5; border:1px solid rgba(154,163,181,0.45); }
+.explica { border-left: 3px solid #00E5FF; background: rgba(0,229,255,0.06); padding: 14px 18px;
   border-radius: 0 14px 14px 0; color:#D3DCF2; font-size: 15px; margin: 6px 0 14px; }
-.explica.azul { border-left-color:#00E5FF; background: rgba(0,229,255,0.06); }
+.explica.azul { border-left-color:#9AA3B5; background: rgba(154,163,181,0.08); }
 .explica b { color:#FFFFFF; }
 .barra { height:6px; border-radius:6px; background: rgba(230,238,255,0.08); margin: 3px 0 8px; overflow:hidden; }
 .barra > div { height:100%; border-radius:6px; background: linear-gradient(90deg, #00E5FF, #39FF88); box-shadow: 0 0 8px rgba(57,255,136,0.6); }
 .fila-b { display:flex; justify-content:space-between; font-size:13px; color:#B9C6E4; }
 div[data-testid="stMetric"] { background: rgba(13,23,53,0.85); border:1px solid rgba(0,229,255,0.18); border-radius: 16px; padding: 14px 16px; }
 div[data-testid="stMetricValue"] { font-family:'Space Grotesk',sans-serif; color:#FFFFFF; text-shadow: 0 0 14px rgba(0,229,255,0.35); }
-button[data-baseweb="tab"] { font-size: 16px; padding: 10px 16px; }
 button[data-baseweb="tab"][aria-selected="true"] { color: #00E5FF; text-shadow: 0 0 10px rgba(0,229,255,0.7); }
-div[data-baseweb="tab-highlight"] { background: linear-gradient(90deg, #00E5FF, #FF2E97) !important; box-shadow: 0 0 10px #FF2E97; }
+div[data-baseweb="tab-highlight"] { background: #00E5FF !important; box-shadow: 0 0 10px #00E5FF; }
 .stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
-  background: linear-gradient(90deg, #FF2E97, #00E5FF); border: 0; color: #060B1E; font-weight: 700; border-radius: 12px;
-  box-shadow: 0 0 18px rgba(255,46,151,0.45); }
+  background: linear-gradient(90deg, #00E5FF, #2FA8FF); border: 0; color: #060B1E; font-weight: 700; border-radius: 12px;
+  box-shadow: 0 0 18px rgba(0,229,255,0.45); }
 .stButton > button[kind="primary"]:hover, .stFormSubmitButton > button[kind="primary"]:hover { box-shadow: 0 0 28px rgba(0,229,255,0.6); color:#060B1E; }
 div[data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: visible !important; row-gap: 8px; }
 .pie { color:#8A97B8; font-size:13px; margin-top: 24px; }
@@ -93,9 +88,9 @@ div[data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: v
 .stApp [data-testid="stCaptionContainer"], .stApp [data-testid="stCaptionContainer"] * { color: #8A97B8; }
 .stApp [data-testid="stMetricLabel"], .stApp [data-testid="stMetricLabel"] * { color: #B9C6E4; }
 .stApp [data-testid="stMetricValue"], .stApp [data-testid="stMetricValue"] * { color: #FFFFFF; }
-.stApp .titulo span { color: transparent; }
+.stApp .titulo span { color: #AE65B6; }
 .stApp .fila-b span { color: #B9C6E4; }
-.stApp .badge.b-alta { color: #39FF88; } .stApp .badge.b-media { color: #00E5FF; } .stApp .badge.b-baja { color: #FF6FB5; }
+.stApp .badge.b-alta { color: #39FF88; } .stApp .badge.b-media { color: #00E5FF; } .stApp .badge.b-baja { color: #9AA3B5; }
 .stApp button[data-baseweb="tab"] p { color: #8A97B8; }
 .stApp button[data-baseweb="tab"][aria-selected="true"] p { color: #00E5FF; }
 div[data-baseweb="tab-border"] { background-color: rgba(0,229,255,0.15) !important; }
@@ -117,8 +112,8 @@ div[data-baseweb="tab-border"] { background-color: rgba(0,229,255,0.15) !importa
 .stApp input::placeholder, .stApp textarea::placeholder { color: #6F7DA0 !important; }
 .stApp [data-baseweb="select"] svg, .stApp [data-testid="stNumberInput"] button svg { fill: #E6EEFF !important; color: #E6EEFF !important; }
 .stApp [data-testid="stNumberInput"] button { background-color: #13204A !important; }
-.stApp [data-baseweb="tag"] { background-color: rgba(255,46,151,0.16) !important; border: 1px solid rgba(255,46,151,0.55) !important; }
-.stApp [data-baseweb="tag"] * { color: #FFD1E8 !important; }
+.stApp [data-baseweb="tag"] { background-color: rgba(154,163,181,0.16) !important; border: 1px solid rgba(154,163,181,0.5) !important; }
+.stApp [data-baseweb="tag"] * { color: #E6EEFF !important; }
 div[data-baseweb="popover"] ul, div[data-baseweb="popover"] li, div[data-baseweb="menu"] { background-color: #0D1735 !important; color: #E6EEFF !important; }
 div[data-baseweb="popover"] li:hover, div[data-baseweb="popover"] li[aria-selected="true"] { background-color: rgba(0,229,255,0.14) !important; }
 div[data-baseweb="popover"] * { color: #E6EEFF; }
@@ -128,10 +123,10 @@ div[data-baseweb="popover"] * { color: #E6EEFF; }
 .stApp [data-testid="stForm"] { border: 1px solid rgba(0,229,255,0.22); background: rgba(13,23,53,0.45); border-radius: 18px; }
 .stApp button[data-testid="stBaseButton-secondary"] { background: transparent !important; border: 1px solid rgba(0,229,255,0.4) !important; }
 .stApp button[data-testid="stBaseButton-secondary"] * { color: #E6EEFF !important; }
-.stApp button[data-testid^="stBaseButton-primary"] { background: linear-gradient(90deg, #FF2E97, #00E5FF) !important; border: 0 !important;
-  box-shadow: 0 0 18px rgba(255,46,151,0.45); }
+.stApp button[data-testid^="stBaseButton-primary"] { background: linear-gradient(90deg, #00E5FF, #2FA8FF) !important; border: 0 !important;
+  box-shadow: 0 0 18px rgba(0,229,255,0.45); }
 .stApp button[data-testid^="stBaseButton-primary"] * { color: #060B1E !important; font-weight: 700; }
-.stApp [data-testid="stSlider"] [role="slider"] { background-color: #FF2E97 !important; box-shadow: 0 0 10px rgba(255,46,151,0.7); }
+.stApp [data-testid="stSlider"] [role="slider"] { background-color: #00E5FF !important; box-shadow: 0 0 10px rgba(0,229,255,0.7); }
 .stApp [data-testid="stTooltipIcon"] svg { stroke: #8A97B8 !important; }
 .stApp [data-testid="stAlert"] * { color: #E6EEFF; }
 .stApp [data-testid="stCheckbox"] label span:first-child { border-color: #00E5FF !important; }
@@ -146,17 +141,44 @@ div[data-baseweb="popover"] * { color: #E6EEFF; }
 .stApp [data-testid="stSelectbox"] button, .stApp [data-testid="stMultiSelect"] input {
   background-color: #0D1735 !important; border-color: rgba(0,229,255,0.28) !important; color: #E6EEFF !important; }
 .stApp [data-testid="stMultiSelectTagsContainer"] [role="group"] { background: transparent !important; }
-.stApp [data-testid="stMultiSelectTagsContainer"] > span > span { background-color: rgba(255,46,151,0.16) !important;
-  border: 1px solid rgba(255,46,151,0.55) !important; }
-.stApp [data-testid="stMultiSelectTagsContainer"] > span > span * { color: #FFD1E8 !important; }
+.stApp [data-testid="stMultiSelectTagsContainer"] > span > span { background-color: rgba(154,163,181,0.16) !important;
+  border: 1px solid rgba(154,163,181,0.5) !important; }
+.stApp [data-testid="stMultiSelectTagsContainer"] > span > span * { color: #E6EEFF !important; }
 [role="listbox"], [role="option"] { background-color: #0D1735 !important; color: #E6EEFF !important; }
 [role="option"]:hover, [role="option"][aria-selected="true"], [role="option"][data-focused="true"] { background-color: rgba(0,229,255,0.16) !important; }
 [role="listbox"] * { color: #E6EEFF !important; }
-.stApp [data-testid="stTabs"] .react-aria-SelectionIndicator { background: linear-gradient(90deg, #00E5FF, #FF2E97) !important;
-  border-color: transparent !important; box-shadow: 0 0 10px rgba(255,46,151,0.7); }
+.stApp [data-testid="stTabs"] .react-aria-SelectionIndicator { background: #00E5FF !important;
+  border-color: transparent !important; box-shadow: 0 0 10px rgba(0,229,255,0.8); }
 .stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"] *, .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] * { color: #00E5FF !important; }
 .stApp [data-testid="stMetricDelta"] { background: rgba(57,255,136,0.10) !important; }
 .stApp [data-testid="stMetricDelta"] * { color: #39FF88 !important; fill: #39FF88 !important; }
+/* navegación principal: pestañas grandes tipo botón */
+.stApp [data-testid="stTabs"] [role="tablist"] { gap: 12px; flex-wrap: wrap; border: 0 !important; padding: 6px 0 14px; }
+.stApp [data-testid="stTabs"] [role="tab"] { flex: 1 1 200px; min-height: 64px; padding: 14px 22px !important; justify-content: flex-start;
+  background: rgba(13,23,53,0.85) !important; border: 1px solid rgba(154,163,181,0.30) !important; border-radius: 16px !important;
+  transition: border-color .2s, box-shadow .2s, background .2s; }
+.stApp [data-testid="stTabs"] [role="tab"] p { font-family: 'Space Grotesk', sans-serif !important; font-size: 20px !important;
+  font-weight: 700 !important; color: #C9D1E0 !important; }
+.stApp [data-testid="stTabs"] [role="tab"]:hover { border-color: rgba(0,229,255,0.6) !important; }
+.stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"], .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] {
+  background: rgba(0,229,255,0.12) !important; border-color: #00E5FF !important; box-shadow: 0 0 22px rgba(0,229,255,0.28); }
+.stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"] p, .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] p { color: #00E5FF !important; }
+.stApp [data-testid="stTabs"] .react-aria-SelectionIndicator, div[data-baseweb="tab-highlight"], div[data-baseweb="tab-border"] { display: none !important; }
+/* encuesta y tarjeta de perfil */
+.encuesta, .perfil-card { border: 1px solid rgba(0,229,255,0.28); border-radius: 20px; padding: 22px 26px; margin: 6px 0 14px;
+  background: linear-gradient(135deg, rgba(13,23,53,0.95), rgba(26,34,56,0.85)); }
+.kicker { color: #9AA3B5 !important; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+.encuesta h3 { margin: 4px 0 6px; font-size: 26px; }
+.encuesta p, .perfil-card p { color: #C9D1E0 !important; margin: 0; max-width: 820px; }
+.perfil-tipo { font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 700; color: #00E5FF;
+  text-shadow: 0 0 16px rgba(0,229,255,0.45); margin: 2px 0 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
+.stApp .chips span { background: rgba(154,163,181,0.12); border: 1px solid rgba(154,163,181,0.35); border-radius: 999px;
+  padding: 5px 12px; font-size: 13px; color: #C9D1E0; }
+.stApp .chips span b { color: #FFFFFF; }
+.perfil-card .nota { color: #8A97B8 !important; font-size: 13px; }
+.stApp [data-testid="stForm"] [data-testid="stRadio"] { background: rgba(42,49,66,0.35); border: 1px solid rgba(154,163,181,0.18);
+  border-radius: 14px; padding: 12px 14px; margin-bottom: 6px; width: 100%; box-sizing: border-box; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
 </style>
 """, unsafe_allow_html=True)
@@ -164,13 +186,13 @@ div[data-baseweb="popover"] * { color: #E6EEFF; }
 pio.templates["radar"] = go.layout.Template(layout=dict(
     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     font=dict(family="Inter, sans-serif", color=BEIGE, size=13),
-    colorway=[ROSA, CIAN, VERDE, "#B26BFF", "#FFD23F", MUTED],
+    colorway=[CIAN, GRIS1, VERDE, GRIS2, VIOLETA, GRIS3],
     xaxis=dict(gridcolor=LINEA, zerolinecolor=LINEA, linecolor=LINEA, automargin=True),
     yaxis=dict(gridcolor=LINEA, zerolinecolor=LINEA, linecolor=LINEA, automargin=True),
     legend=dict(bgcolor="rgba(0,0,0,0)"), hoverlabel=dict(bgcolor=PANEL, font_color=BEIGE),
     margin=dict(l=10, r=10, t=30, b=10)))
 pio.templates.default = "radar"
-ESCALA = [[0, ROSA], [0.5, CIAN], [1, VERDE]]  # bajo → alto
+ESCALA = [[0, GRIS3], [0.5, CIAN], [1, VERDE]]  # bajo → alto
 
 # ---------------------------------------------------------------------------
 # Universos (símbolos de Yahoo Finance)
@@ -316,15 +338,108 @@ st.markdown("""
   <div class="titulo">Radar de <span>inversión</span></div>
   <p>Encuentra acciones y criptomonedas interesantes, entiende si su precio tiene sentido y descubre
   cómo repartir tu dinero entre ellas. Sin necesidad de ser experto.</p>
-  <div class="pasos">
-    <div class="paso"><b>1</b>Explora el mercado</div>
-    <div class="paso"><b>2</b>Analiza una empresa</div>
-    <div class="paso"><b>3</b>Arma tu portafolio</div>
-  </div>
 </div>
 """, unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4 = st.tabs(["🔍  1 · Explora", "🔬  2 · Analiza", "🧩  3 · Tu portafolio", "💡  ¿Cómo funciona?"])
+# ---------------------------------------------------------------------------
+# Encuesta de perfil de inversionista
+# ---------------------------------------------------------------------------
+PREGUNTAS = [
+    ("¿Para qué es el dinero que quieres invertir?",
+     ["Quiero protegerlo y que no pierda valor", "Quiero que crezca de forma estable", "Quiero que crezca lo más posible"]),
+    ("¿Cuándo crees que vas a necesitar ese dinero?",
+     ["En menos de 2 años", "Entre 2 y 5 años", "En más de 5 años"]),
+    ("Imagina que tu inversión cae 20% en un mes. ¿Qué harías?",
+     ["Vendería para no perder más", "Esperaría a que se recupere", "Aprovecharía para comprar más"]),
+    ("¿Cuánta experiencia tienes invirtiendo?",
+     ["Ninguna, estoy empezando", "Algo: CDT, fondos o pensiones voluntarias", "Bastante: acciones, ETF o cripto"]),
+]
+ATRAE = {"Que esté a buen precio": "🏷️ Buscar gangas", "Que sea sólida y rentable": "🏛️ Negocios sólidos",
+         "Que esté creciendo rápido": "🚀 Crecimiento", "Que su acción venga subiendo": "📈 Seguir la tendencia",
+         "Un poco de todo": "⚖️ Equilibrado"}
+PERFILES = {
+    "Conservador": dict(desc="Para ti lo más importante es cuidar tu dinero. Prefieres ganar un poco menos a cambio de "
+                             "evitar sustos, y eso está perfecto.",
+                        recomendado="Mínima varianza", cap=0.25),
+    "Moderado": dict(desc="Buscas que tu dinero crezca y aceptas algunos altibajos en el camino, siempre que no sean "
+                          "demasiado bruscos. Es el punto medio entre seguridad y rendimiento.",
+                     recomendado="Máximo Sharpe", cap=0.30),
+    "Arriesgado": dict(desc="Piensas en el largo plazo y las caídas temporales no te quitan el sueño. Estás dispuesto a "
+                            "asumir más riesgo a cambio de mayor potencial de crecimiento.",
+                       recomendado="Máximo Sharpe", cap=0.40),
+}
+
+
+def calcular_perfil(respuestas: list[int], atrae: str, cripto: str, nombre: str) -> dict:
+    puntos = sum(respuestas) + len(respuestas)  # cada respuesta vale 1, 2 o 3
+    tipo = "Conservador" if puntos <= 6 else "Moderado" if puntos <= 9 else "Arriesgado"
+    return dict(nombre=nombre.strip(), tipo=tipo, puntos=puntos, estilo=ATRAE[atrae],
+                cripto=cripto.startswith("Sí") and tipo != "Conservador", quiere_cripto=cripto.startswith("Sí"),
+                **PERFILES[tipo])
+
+
+perfil = st.session_state.get("perfil")
+if perfil is None and not st.session_state.get("sin_encuesta"):
+    st.markdown("""<div class="encuesta"><div class="kicker">Antes de empezar</div>
+        <h3>Conozcámonos un poco</h3>
+        <p>Responde 6 preguntas rápidas (toma menos de un minuto) y ajustamos la app a tu forma de invertir:
+        el estilo de búsqueda, el tipo de portafolio que más te conviene y cuánto concentrar en cada activo.
+        No hay respuestas buenas ni malas.</p></div>""", unsafe_allow_html=True)
+    with st.form("encuesta"):
+        nombre = st.text_input("¿Cómo te llamas? (opcional)", placeholder="Tu nombre")
+        resp = []
+        for fila_q in range(2):
+            cols = st.columns(2, gap="large")
+            for j in range(2):
+                i = fila_q * 2 + j
+                preg, ops = PREGUNTAS[i]
+                with cols[j]:
+                    r = st.radio(f"{i + 1}. {preg}", ops, index=None, key=f"q{i}")
+                    resp.append(None if r is None else ops.index(r))
+        cols = st.columns(2, gap="large")
+        with cols[0]:
+            atrae = st.radio("5. Cuando miras una empresa, ¿qué es lo que más te llama la atención?", list(ATRAE), index=None)
+        with cols[1]:
+            cripto = st.radio("6. ¿Te gustaría incluir criptomonedas?",
+                              ["Sí, una parte pequeña", "No, prefiero dejarlas por fuera"], index=None)
+        c1, c2 = st.columns([1, 4])
+        listo = c1.form_submit_button("Ver mi perfil", type="primary")
+        saltar = c2.form_submit_button("Prefiero saltarla por ahora")
+    if saltar:
+        st.session_state["sin_encuesta"] = True
+        st.rerun()
+    if listo:
+        if None in resp or atrae is None or cripto is None:
+            st.warning("Te faltan algunas preguntas. Respóndelas todas para darte un perfil acertado.")
+        else:
+            st.session_state["perfil"] = calcular_perfil(resp, atrae, cripto, nombre)
+            st.session_state.pop("opt", None)
+            st.rerun()
+    st.stop()
+
+if perfil:
+    saludo = f"{esc(perfil['nombre'])}, tu" if perfil["nombre"] else "Tu"
+    extra_cripto = ("Incluiremos criptomonedas en una proporción pequeña." if perfil["cripto"] else
+                    "Por tu perfil, dejamos las criptomonedas por fuera de la sugerencia inicial (igual puedes agregarlas)."
+                    if perfil["quiere_cripto"] else "Dejamos las criptomonedas por fuera, como prefieres.")
+    p1, p2 = st.columns([5, 1], vertical_alignment="center")
+    p1.markdown(f"""<div class="perfil-card"><div class="kicker">{saludo} perfil de inversionista</div>
+        <div class="perfil-tipo">{perfil['tipo']}</div><p>{perfil['desc']}</p>
+        <div class="chips"><span>Estilo sugerido: <b>{esc(perfil['estilo'].split(' ', 1)[1])}</b></span>
+        <span>Portafolio sugerido: <b>{perfil['recomendado']}</b></span>
+        <span>Máximo por activo: <b>{perfil['cap']:.0%}</b></span></div>
+        <p class="nota">{extra_cripto} Es una orientación para empezar, no una asesoría profesional.</p></div>""",
+                unsafe_allow_html=True)
+    if p2.button("Repetir encuesta", width="stretch"):
+        for k in ["perfil", "opt"] + [f"q{i}" for i in range(len(PREGUNTAS))]:
+            st.session_state.pop(k, None)
+        st.rerun()
+else:
+    if st.button("Hacer la encuesta de perfil"):
+        st.session_state.pop("sin_encuesta", None)
+        st.rerun()
+
+tab1, tab2, tab3, tab4 = st.tabs(["1 · Explora", "2 · Analiza", "3 · Tu portafolio", "¿Cómo funciona?"])
 
 # ---------------------------------------------------------------------------
 # Paso 1: Explorar
@@ -341,8 +456,11 @@ with tab1:
                                    help="Busca el símbolo en finance.yahoo.com. Colombia termina en .CL, criptos en -USD.")
             scr = st.selectbox("Buscador automático de Yahoo (opcional)", ["Ninguno"] + list(SCREENERS))
     with c_b:
-        st.markdown("#### ¿Qué tipo de inversionista eres?")
-        estilo = st.radio("Estilo", list(ESTILOS) + ["🎛️ Personalizado"], label_visibility="collapsed")
+        st.markdown("#### ¿Qué buscas en una inversión?")
+        opciones_estilo = list(ESTILOS) + ["🎛️ Personalizado"]
+        idx = opciones_estilo.index(perfil["estilo"]) if perfil else 0
+        estilo = st.radio("Estilo", opciones_estilo, index=idx, label_visibility="collapsed",
+                          help="Viene preseleccionado según tu encuesta; puedes cambiarlo cuando quieras.")
         if estilo == "🎛️ Personalizado":
             pesos = {b: st.slider(NOMBRE_BLOQUE[b], 0, 5, 2) for b in NOMBRE_BLOQUE}
         else:
@@ -491,14 +609,14 @@ with tab2:
             if len(val):
                 st.markdown("##### ¿Cuánto valdría según cada forma de medir?")
                 fig = go.Figure(go.Bar(y=val["Método"], x=val["Precio implícito"], orientation="h",
-                                       marker_color=np.where(val["Upside"] >= 0, VERDE, ROSA),
+                                       marker_color=np.where(val["Upside"] >= 0, VERDE, GRIS3),
                                        text=[f"{v:,.2f} ({u:+.0%})" for v, u in zip(val["Precio implícito"], val["Upside"])],
                                        textposition="outside", cliponaxis=False))
                 fig.add_vline(x=fila["Precio"], line_color=BEIGE, line_width=2, line_dash="dot",
                               annotation_text="precio hoy", annotation_font_color=BEIGE)
                 fig.update_layout(height=330, xaxis_title=f"Precio por acción ({fila['Moneda']})", margin=dict(r=120))
                 st.plotly_chart(fig, width="stretch", theme=None)
-                st.caption("Verde: valdría más que hoy. Rosa: valdría menos. Cada barra usa un múltiplo distinto "
+                st.caption("Verde: valdría más que hoy. Gris: valdría menos. Cada barra usa un múltiplo distinto "
                            "(P/E = precio/utilidad, P/B = precio/patrimonio, P/S = precio/ventas, EV/EBITDA = valor empresa/flujo operativo).")
 
         st.markdown("##### Sus números frente a los comparables, en palabras simples")
@@ -538,20 +656,23 @@ with tab3:
         st.info("Primero busca oportunidades en el paso 1.")
     else:
         df = st.session_state["df"]
+        rec = perfil["recomendado"] if perfil else None
+        sello = lambda n: '<span class="badge b-alta" style="margin-left:8px">Sugerido para tu perfil</span>' if rec == n else ""
         k1, k2 = st.columns(2, gap="large")
-        k1.markdown("""<div class="card rosa"><h4>🎯 Portafolio de máximo Sharpe</h4><div class="sub">El más eficiente</div>
+        k1.markdown(f"""<div class="card sharpe"><h4>🎯 Portafolio de máximo Sharpe {sello("Máximo Sharpe")}</h4><div class="sub">El más eficiente</div>
             Busca la combinación que da <b>el mayor rendimiento por cada unidad de riesgo</b> que asumes.
             Es como elegir el carro que más kilómetros recorre por galón: no el más rápido, sino el que mejor aprovecha cada gota.
             <ul><li>Ideal si aceptas altibajos a cambio de mejor rendimiento.</li>
             <li>Suele concentrarse en pocos activos.</li></ul></div>""", unsafe_allow_html=True)
-        k2.markdown("""<div class="card cian"><h4>🛡️ Portafolio de mínima varianza</h4><div class="sub">El más estable</div>
+        k2.markdown(f"""<div class="card minvar"><h4>🛡️ Portafolio de mínima varianza {sello("Mínima varianza")}</h4><div class="sub">El más estable</div>
             Combina los activos para que <b>el valor total de tu inversión se mueva lo menos posible</b>,
             aprovechando que unos suben cuando otros bajan. No persigue el mayor rendimiento, persigue la tranquilidad.
             <ul><li>Ideal si priorizas dormir tranquilo.</li><li>Suele estar más diversificado.</li></ul></div>""", unsafe_allow_html=True)
         st.write("")
 
         orden = df["Ticker"].tolist() + base.loc[base["Tipo"] == "Cripto", "Ticker"].tolist()
-        defecto = df["Ticker"].head(5).tolist() + [t for t in ["BTC-USD"] if t in orden]
+        con_cripto = perfil["cripto"] if perfil else True
+        defecto = df["Ticker"].head(5).tolist() + [t for t in ["BTC-USD"] if t in orden and con_cripto]
         if len(defecto) < 2:
             defecto = orden[:6]
         nombres_all = base.set_index("Ticker")["Nombre"]
@@ -570,7 +691,7 @@ with tab3:
                 rf_live = tasa_libre_riesgo()
                 rf = a2.number_input("Tasa libre de riesgo anual (%)", value=round((rf_live or 0.04) * 100, 2), step=0.1,
                                      help="Lo que ganarías sin riesgo. Por defecto: T-Bill de EE.UU. a 3 meses (^IRX).") / 100
-                cap = a3.slider("Máximo por activo", 0.1, 1.0, 0.35, 0.05, format="%.2f",
+                cap = a3.slider("Máximo por activo", 0.1, 1.0, perfil["cap"] if perfil else 0.35, 0.05, format="%.2f",
                                 help="Evita poner demasiado dinero en un solo activo. 0.35 = máximo 35%.")
                 b1, b2, b3 = st.columns(3)
                 metodo_mu = b1.selectbox("Rendimiento esperado", ["Histórico", "CAPM"],
@@ -628,16 +749,16 @@ with tab3:
                 st.warning(f"Dejé por fuera (poca historia de precios): {', '.join(o['excluidos'])}")
             if (mu < rf).all():
                 st.warning("Todos los activos rindieron menos que la tasa libre de riesgo en este periodo; el portafolio de Sharpe será 'el menos malo'.")
-            colores = {"Máximo Sharpe": NARANJA, "Mínima varianza": AZUL}
+            colores = {"Máximo Sharpe": CIAN, "Mínima varianza": GRIS1}
             columnas = st.columns(2, gap="large")
             for col, (nombre, w) in zip(columnas, o["w"].items()):
                 r, v, s = M._stats(w.values, mu.values, cov.values, rf)
                 asig = M.asignar_monto(w, o["precios"], o["fx"], o["monto"], o["fracc"])
                 asig = asig[asig["Peso objetivo"] > 0].sort_values("Peso objetivo", ascending=False)
                 with col:
-                    st.markdown(f"### {'🎯' if nombre == 'Máximo Sharpe' else '🛡️'} {nombre}")
-                    pal = ([ROSA, CIAN, VERDE, "#B26BFF", "#FFD23F", "#FF8AC6", "#7CF5FF"] if nombre == "Máximo Sharpe"
-                           else [CIAN, VERDE, ROSA, "#B26BFF", "#FFD23F", "#7CF5FF", "#FF8AC6"])
+                    st.markdown(f"<h3>{'🎯' if nombre == 'Máximo Sharpe' else '🛡️'} {nombre} {sello(nombre)}</h3>", unsafe_allow_html=True)
+                    pal = ([CIAN, GRIS1, VERDE, GRIS3, "#7CF5FF", GRIS2, "#1F8FA3"] if nombre == "Máximo Sharpe"
+                           else [GRIS1, CIAN, GRIS3, VERDE, GRIS2, "#7CF5FF", "#3B4457"])
                     fig = go.Figure(go.Pie(labels=[t.replace(".CL", "") for t in asig.index], values=asig["Peso objetivo"], hole=0.62, sort=False,
                                            marker=dict(colors=pal * 5, line=dict(color=NAVY, width=2)),
                                            textinfo="label+percent", textposition="outside",
@@ -697,7 +818,7 @@ with tab3:
             if o["mkt"] is not None:
                 cum["S&P 500"] = (1 + o["mkt"]).cumprod() * 100
             fig = go.Figure()
-            for c, color in zip(cum, [ROSA, CIAN, MUTED, VERDE]):
+            for c, color in zip(cum, [CIAN, GRIS1, GRIS3, VERDE]):
                 fig.add_scatter(x=cum.index, y=cum[c], name=c, mode="lines",
                                 line=dict(color=color, width=3 if c in o["w"] else 1.6, dash="solid" if c in o["w"] else "dot"))
             fig.update_layout(height=380, yaxis_title="Valor de cada 100 invertidos", legend=dict(orientation="h", y=-0.18))
