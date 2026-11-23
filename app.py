@@ -6,6 +6,8 @@ Ejecutar:  streamlit run app.py
 from __future__ import annotations
 
 import html
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
@@ -50,7 +52,8 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spa
   0 0 0 29px rgba(154,163,181,0.35), 0 0 0 66px rgba(57,255,136,0.04), 0 0 0 67px rgba(57,255,136,0.25); }
 .titulo { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size: clamp(32px, 4.4vw, 52px); line-height:1.05;
   color:#E6EEFF; margin:0 0 10px; letter-spacing:-0.02em; }
-.titulo span { color: #AE65B6; text-shadow: 0 0 18px rgba(174,101,182,0.55), 0 0 2px rgba(174,101,182,0.9); }
+.titulo span { color: #0A2A6E; -webkit-text-stroke: 1.6px #00E5FF; paint-order: stroke fill;
+  text-shadow: 0 0 14px rgba(0,229,255,0.55), 0 0 30px rgba(0,229,255,0.25); }
 .hero p { color:#B9C6E4; font-size: 17px; max-width: 760px; margin: 0; }
 .card { background: rgba(13,23,53,0.88); border: 1px solid rgba(0,229,255,0.16); border-radius: 18px; padding: 18px 20px; height: 100%;
   transition: border-color .2s, box-shadow .2s; }
@@ -88,7 +91,7 @@ div[data-testid="stButtonGroup"] > div { flex-wrap: wrap !important; overflow: v
 .stApp [data-testid="stCaptionContainer"], .stApp [data-testid="stCaptionContainer"] * { color: #8A97B8; }
 .stApp [data-testid="stMetricLabel"], .stApp [data-testid="stMetricLabel"] * { color: #B9C6E4; }
 .stApp [data-testid="stMetricValue"], .stApp [data-testid="stMetricValue"] * { color: #FFFFFF; }
-.stApp .titulo span { color: #AE65B6; }
+.stApp .titulo span { color: #0A2A6E; -webkit-text-stroke: 1.6px #00E5FF; }
 .stApp .fila-b span { color: #B9C6E4; }
 .stApp .badge.b-alta { color: #39FF88; } .stApp .badge.b-media { color: #00E5FF; } .stApp .badge.b-baja { color: #9AA3B5; }
 .stApp button[data-baseweb="tab"] p { color: #8A97B8; }
@@ -238,40 +241,112 @@ MONEDAS_SUB = {"GBp": ("GBP", 100), "ZAc": ("ZAR", 100), "ILA": ("ILS", 100)}
 # Datos (caché de 1 hora)
 # ---------------------------------------------------------------------------
 
-def _info(t: str) -> tuple[str, dict]:
+def _es_limite(e: Exception) -> bool:
+    txt = f"{type(e).__name__} {e}".lower()
+    return "ratelimit" in txt or "rate limit" in txt or "too many requests" in txt or "429" in txt
+
+
+def _info(t: str, bloqueo: threading.Event | None = None) -> tuple[str, dict, str]:
+    """Pide los fundamentales a Yahoo con reintentos. Devuelve (símbolo usado, info, error).
+    Si Yahoo ya bloqueó varias consultas (`bloqueo`), no insiste para no alargar la espera."""
+    error = ""
     for simbolo in (t, RESPALDO.get(t)):
         if not simbolo:
             continue
-        try:
-            i = yf.Ticker(simbolo).info or {}
-        except Exception:
-            i = {}
-        if i.get("regularMarketPrice") or i.get("currentPrice"):
-            return simbolo, i
-    return t, {}
+        for intento in range(2):
+            if bloqueo is not None and bloqueo.is_set():
+                return t, {}, "limite"
+            try:
+                i = yf.Ticker(simbolo).info or {}
+                if i.get("regularMarketPrice") or i.get("currentPrice"):
+                    return simbolo, i, ""
+                error = error or "sin datos"
+                break
+            except Exception as e:  # noqa: BLE001
+                error = "limite" if _es_limite(e) else f"{type(e).__name__}: {e}"[:200]
+                if error == "limite":
+                    if bloqueo is not None and intento == 1:
+                        bloqueo.set()
+                    time.sleep(1.5)
+                    continue
+                break
+    return t, {}, error
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def cargar_fundamentales(tickers: tuple[str, ...]) -> pd.DataFrame:
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        res = list(ex.map(_info, tickers))
-    filas = [M.metricas_desde_info(s, i) for s, i in res if i]
+@st.cache_resource
+def _cache_info() -> dict:
+    """Caché compartida que SOLO guarda respuestas exitosas (los errores no quedan guardados)."""
+    return {}
+
+
+def _moneda_probable(t: str) -> str:
+    return {".CL": "COP", ".TO": "CAD", ".SA": "BRL", ".MX": "MXN", ".DE": "EUR", ".L": "GBp"}.get(
+        "." + t.rsplit(".", 1)[-1] if "." in t else "", "USD")
+
+
+def cargar_fundamentales(tickers: tuple[str, ...]) -> tuple[pd.DataFrame, dict]:
+    cache, ahora = _cache_info(), time.time()
+    pendientes = [t for t in tickers if t not in cache or ahora - cache[t][0] > 3600]
+    errores = {}
+    if pendientes:
+        bloqueo = threading.Event()
+        with ThreadPoolExecutor(max_workers=4) as ex:  # pocas consultas a la vez para no activar el límite de Yahoo
+            for t, (sim, info, err) in zip(pendientes, ex.map(lambda x: _info(x, bloqueo), pendientes)):
+                if info:
+                    cache[t] = (ahora, sim, info)
+                else:
+                    errores[t] = err
+    filas = [M.metricas_desde_info(cache[t][1], cache[t][2]) for t in tickers if t in cache]
+    for f in filas:
+        f["Con fundamentales"] = True
+    # Plan B: si Yahoo no entregó fundamentales, al menos traemos el precio (otro servicio de Yahoo, menos restringido)
+    sin_info = [t for t in tickers if t not in cache]
+    if sin_info:
+        hist = cargar_precios(tuple(sin_info), "5d")
+        for t in sin_info:
+            if t in hist and hist[t].notna().any():
+                f = M.metricas_desde_info(t, {"regularMarketPrice": float(hist[t].dropna().iloc[-1]), "shortName": t,
+                                              "currency": _moneda_probable(t),
+                                              "quoteType": "CRYPTOCURRENCY" if t.endswith("-USD") else "EQUITY"})
+                f["Con fundamentales"] = False
+                filas.append(f)
     df = pd.DataFrame(filas)
     if len(df):
         df = df[df["Precio"].notna()].drop_duplicates("Ticker")
-    return df.reset_index(drop=True)
+    return df.reset_index(drop=True), errores
+
+
+class SinDatos(Exception):
+    pass
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def cargar_precios(tickers: tuple[str, ...], periodo: str) -> pd.DataFrame:
+def _precios_cache(tickers: tuple[str, ...], periodo: str) -> pd.DataFrame:
     data = yf.download(list(tickers), period=periodo, auto_adjust=True, progress=False, threads=True)
     if data is None or data.empty:
-        return pd.DataFrame()
+        raise SinDatos("Yahoo no devolvió precios")  # las excepciones no se guardan en caché
     close = data["Close"] if "Close" in data else data
     if isinstance(close, pd.Series):
         close = close.to_frame(tickers[0])
     close.index = pd.to_datetime(close.index).tz_localize(None)
-    return close.dropna(how="all", axis=1)
+    close = close.dropna(how="all", axis=1)
+    if close.empty:
+        raise SinDatos("Yahoo no devolvió precios")
+    return close
+
+
+def cargar_precios(tickers: tuple[str, ...], periodo: str) -> pd.DataFrame:
+    for intento in range(2):
+        try:
+            return _precios_cache(tickers, periodo)
+        except SinDatos:
+            if intento == 0:
+                time.sleep(2)
+        except Exception as e:  # noqa: BLE001
+            if not _es_limite(e) or intento == 1:
+                break
+            time.sleep(3)
+    return pd.DataFrame()
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -479,11 +554,24 @@ with tab1:
             st.error("Elige al menos un mercado o escribe un símbolo.")
         else:
             with st.spinner(f"Leyendo {len(tickers)} activos en Yahoo Finance…"):
-                fund = cargar_fundamentales(tickers)
+                fund, errores = cargar_fundamentales(tickers)
                 hist = cargar_precios(tuple(fund["Ticker"]), "13mo") if len(fund) else pd.DataFrame()
+            limite = any(e == "limite" for e in errores.values())
             if fund.empty:
-                st.error("Yahoo no devolvió datos. Revisa los símbolos o tu conexión e intenta otra vez.")
+                if limite:
+                    st.error("Yahoo está limitando las consultas en este momento (pasa a menudo cuando la app corre en la nube, "
+                             "porque muchas apps comparten el mismo servidor). Espera uno o dos minutos y vuelve a intentar, "
+                             "o elige menos mercados a la vez.")
+                else:
+                    st.error("Yahoo no devolvió datos. Espera un momento y vuelve a intentar; si sigue pasando, revisa el detalle abajo.")
+                with st.expander("Detalle técnico del error"):
+                    st.write({t: ("límite de consultas de Yahoo" if e == "limite" else e) for t, e in list(errores.items())[:15]})
             else:
+                sin_fund = int((~fund["Con fundamentales"]).sum())
+                if sin_fund:
+                    st.warning(f"Yahoo solo entregó el precio de {sin_fund} activo(s), sin sus estados financieros"
+                               + (" (límite de consultas)" if limite else "")
+                               + ". Su puntaje de empresa será neutral; vuelve a buscar en unos minutos para completarlos.")
                 st.session_state.update(
                     fund=fund.join(M.momentum(hist), on="Ticker"), fecha=datetime.now().strftime("%d/%m/%Y %H:%M"),
                     faltan=[t for t in tickers if t not in set(fund["Ticker"]) and RESPALDO.get(t) not in set(fund["Ticker"])])
@@ -514,7 +602,7 @@ with tab1:
             st.markdown("### Mapa: precio vs. solidez")
             st.markdown('<div class="explica">Cada burbuja es una empresa (más grande = empresa más grande). '
                         'Arriba a la derecha están las <b>baratas y sólidas</b>, la zona más interesante.</div>', unsafe_allow_html=True)
-            tam = df["Cap. mercado"].fillna(df["Cap. mercado"].median()).clip(lower=1)
+            tam = df["Cap. mercado"].fillna(df["Cap. mercado"].median()).fillna(1.0).clip(lower=1)
             fig = go.Figure(go.Scatter(
                 x=df["Valor"], y=df["Calidad"], mode="markers+text", text=df["Ticker"].str.replace(".CL", "", regex=False),
                 textposition="top center", customdata=np.stack([df["Nombre"], df["Puntaje"]], axis=1),
