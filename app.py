@@ -9,7 +9,7 @@ import html
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import date, datetime
 
 import numpy as np
 import pandas as pd
@@ -20,6 +20,7 @@ import yfinance as yf
 
 import fuentes as F
 import motor as M
+import seguimiento as S
 
 st.set_page_config(page_title="Radar · Inversión inteligente", page_icon="📡", layout="wide")
 
@@ -193,6 +194,11 @@ div[data-baseweb="popover"] *, [role="listbox"] * { color: #F4EDE0 !important; }
 .stApp [data-testid="stForm"] [data-testid="stRadio"] { background: rgba(29,46,82,0.5); border: 1px solid rgba(244,237,224,0.12);
   border-radius: 16px; padding: 12px 14px; margin-bottom: 6px; width: 100%; box-sizing: border-box; }
 .stApp [data-testid="stForm"] [data-testid="stElementContainer"]:has([data-testid="stRadio"]) { width: 100% !important; }
+.card.reco { height: auto; margin-bottom: 14px; padding: 16px 18px; }
+.card.reco.alerta { border-left: 3px solid #FF6B5B; }
+.card.reco.sugerencia { border-left: 3px solid #F4EDE0; }
+.card.reco.bien { border-left: 3px solid #7D9BD1; }
+.stApp .card.reco p { opacity: .9; font-size: 14.5px; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
 </style>
 """, unsafe_allow_html=True)
@@ -491,6 +497,17 @@ def por_que(fila) -> str:
     return txt + (f". Ojo: {', '.join(malas[:2])}." if malas else ".")
 
 
+def dinero_corto(x: float, moneda: str) -> str:
+    """Cifras grandes legibles en tarjetas: 549,8 M COP · 1,2 mil M COP."""
+    s = "-" if x < 0 else ""
+    v = abs(x)
+    if v >= 1e9:
+        return f"{s}{v / 1e9:,.2f} mil M {moneda}".replace(",", "X").replace(".", ",").replace("X", ".")
+    if v >= 1e6:
+        return f"{s}{v / 1e6:,.1f} M {moneda}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return dinero(x, moneda)
+
+
 def dinero(x: float, moneda: str) -> str:
     return f"{x:,.0f} {moneda}" if moneda == "COP" else f"{x:,.2f} {moneda}"
 
@@ -501,7 +518,7 @@ def dinero(x: float, moneda: str) -> str:
 st.markdown("""
 <div class="hero">
   <div class="sello">Datos en vivo</div>
-  <div class="rutas"><span>Oportunidades</span><span>Valoración</span><span>Portafolio</span></div>
+  <div class="rutas"><span>Oportunidades</span><span>Valoración</span><span>Portafolio</span><span>Seguimiento</span></div>
   <div class="titulo">Radar de <span>inversión</span>.</div>
   <p>Encuentra acciones y criptomonedas interesantes, entiende si su precio tiene sentido y descubre
   cómo repartir tu dinero entre ellas. Sin necesidad de ser experto.</p>
@@ -612,7 +629,7 @@ else:
         st.session_state.pop("sin_encuesta", None)
         st.rerun()
 
-tab1, tab2, tab3, tab4 = st.tabs(["1 · Explora", "2 · Analiza", "3 · Tu portafolio", "¿Cómo funciona?"])
+tab1, tab2, tab3, tab_seg, tab4 = st.tabs(["1 · Explora", "2 · Analiza", "3 · Tu portafolio", "4 · Mi seguimiento", "¿Cómo funciona?"])
 
 # ---------------------------------------------------------------------------
 # Paso 1: Explorar
@@ -1025,6 +1042,302 @@ with tab3:
                 st.plotly_chart(fig, width="stretch", theme=None)
             st.caption(f"Riesgo estimado con {o['metodo_cov']}" + (f" (suavizado δ = {o['delta']:.2f})" if o["metodo_cov"] == "Ledoit-Wolf" else "")
                        + f" · rendimiento {o['metodo_mu'].lower()} · máximo {o['cap']:.0%} por activo · tasa libre de riesgo {rf:.2%}.")
+
+# ---------------------------------------------------------------------------
+# Paso 4: Mi seguimiento (portafolio real)
+# ---------------------------------------------------------------------------
+EJEMPLO = pd.DataFrame([
+    {"Activo": "AAPL", "Fecha": "2024-06-03", "Cantidad": 8, "Precio compra": 193.0, "Comisión": 0.0},
+    {"Activo": "ECOPETROL.CL", "Fecha": "2024-09-02", "Cantidad": 1500, "Precio compra": 2350.0, "Comisión": 9000.0},
+    {"Activo": "GEB.CL", "Fecha": "2025-02-03", "Cantidad": 2000, "Precio compra": 2300.0, "Comisión": 9000.0},
+    {"Activo": "MSFT", "Fecha": "2025-04-07", "Cantidad": 4, "Precio compra": 360.0, "Comisión": 0.0},
+    {"Activo": "BTC-USD", "Fecha": "2025-08-11", "Cantidad": 0.01, "Precio compra": 118000.0, "Comisión": 0.0},
+])
+ICONO = {"alerta": "⚠️", "sugerencia": "💡", "bien": "✅"}
+
+
+def _serie_fx(de: str, a: str, periodo: str, idx: pd.DatetimeIndex) -> pd.Series:
+    """Tasa histórica: unidades de `a` por 1 `de` (con la tasa inversa como respaldo)."""
+    if de == a:
+        return pd.Series(1.0, index=idx)
+    for par, inv in ((f"{de}{a}=X", False), (f"{a}{de}=X", True)):
+        h = cargar_precios((par,), periodo)
+        if not h.empty:
+            s = h.iloc[:, 0].dropna()
+            s = 1 / s if inv else s
+            return s.reindex(s.index.union(idx)).ffill().bfill().reindex(idx)
+    raise ValueError(f"No encontré la tasa de cambio {de}/{a} en Yahoo")
+
+
+def _registro() -> pd.DataFrame:
+    if "trans" not in st.session_state:
+        st.session_state["trans"] = S.registro_vacio()
+        st.session_state["trans_v"] = 0
+    return st.session_state["trans"]
+
+
+def _guardar_registro(df_nuevo: pd.DataFrame):
+    st.session_state["trans"] = df_nuevo.reset_index(drop=True)
+    st.session_state["trans_v"] = st.session_state.get("trans_v", 0) + 1  # reinicia la tabla editable
+
+
+with tab_seg:
+    st.markdown('<div class="explica">Registra las inversiones que <b>ya tienes</b>: qué compraste, cuándo, cuánto y a qué precio. '
+                'La app calcula cuánto has ganado o perdido, qué tan riesgoso es tu portafolio, lo compara contra el S&P 500 y te '
+                'da recomendaciones según tu perfil.</div>', unsafe_allow_html=True)
+    base_reg = _registro()
+
+    c_izq, c_der = st.columns([3, 2], gap="large")
+    with c_izq:
+        st.markdown("#### Agregar una compra")
+        conocidos = sorted({t for g in GRUPOS.values() for t in g.split()})
+        with st.form("nueva_compra", clear_on_submit=True):
+            f1, f2 = st.columns(2)
+            activo = f1.selectbox("Activo", conocidos, index=None, accept_new_options=True,
+                                  placeholder="Busca o escribe el símbolo (ej. GEB.CL, AAPL, BTC-USD)",
+                                  help="Si no está en la lista, escribe el símbolo de Yahoo Finance y presiona Enter.")
+            fecha = f2.date_input("Fecha de compra", value=date.today(), max_value=date.today(), format="DD/MM/YYYY")
+            f3, f4, f5 = st.columns(3)
+            cantidad = f3.number_input("Cantidad (acciones o unidades)", min_value=0.0, value=None, step=1.0, format="%.6g",
+                                       placeholder="Ej. 100")
+            precio = f4.number_input("Precio por unidad", min_value=0.0, value=None, format="%.6g", placeholder="Vacío = cierre de ese día",
+                                     help="En la moneda en que cotiza el activo: COP para acciones colombianas (.CL), USD para EE.UU. y cripto. "
+                                          "Si lo dejas vacío, usamos el precio de cierre de ese día.")
+            comision = f5.number_input("Comisión (opcional)", min_value=0.0, value=0.0, format="%.6g",
+                                       help="Lo que pagaste al comisionista, en la misma moneda del precio.")
+            agregar = st.form_submit_button("Agregar al registro", type="primary")
+        if agregar:
+            if not activo or not cantidad:
+                st.warning("Indica al menos el activo y la cantidad.")
+            else:
+                t = activo.strip().upper()
+                p = precio
+                if not p:
+                    h = cargar_precios((t,), S.periodo_desde(pd.Timestamp(fecha)))
+                    if t in h and h[t].notna().any():
+                        s = h[t].dropna()
+                        p = float(s.asof(pd.Timestamp(fecha))) if pd.Timestamp(fecha) >= s.index[0] else float(s.iloc[0])
+                    else:
+                        p = None
+                if p is None or p != p:
+                    st.error(f"No encontré el precio de {t} en Yahoo. Revisa el símbolo o escribe el precio a mano.")
+                else:
+                    fila = pd.DataFrame([{"Activo": t, "Fecha": pd.Timestamp(fecha), "Cantidad": float(cantidad),
+                                          "Precio compra": float(p), "Comisión": float(comision or 0)}])
+                    _guardar_registro(pd.concat([st.session_state.get("trans_editado", base_reg), fila], ignore_index=True))
+                    st.toast(f"Agregué {cantidad:g} de {t} a tu registro.", icon="✅")
+                    st.rerun()
+    with c_der:
+        st.markdown("#### Guarda o carga tu registro")
+        st.markdown('<div class="explica azul">Por privacidad, la app <b>no guarda</b> tus datos en ningún servidor. '
+                    'Descarga tu registro al terminar y cárgalo la próxima vez para continuar donde quedaste.</div>',
+                    unsafe_allow_html=True)
+        archivo = st.file_uploader("Cargar mi registro (CSV)", type=["csv"], label_visibility="collapsed")
+        if archivo is not None and st.session_state.get("trans_archivo") != archivo.file_id:
+            try:
+                cargado = pd.read_csv(archivo)
+                faltan = [c for c in ["Activo", "Fecha", "Cantidad", "Precio compra"] if c not in cargado]
+                if faltan:
+                    st.error(f"Al archivo le faltan columnas: {', '.join(faltan)}.")
+                else:
+                    _guardar_registro(S.limpiar(cargado))
+                    st.session_state["trans_archivo"] = archivo.file_id
+                    st.rerun()
+            except Exception as e:  # noqa: BLE001
+                st.error(f"No pude leer el archivo: {e}")
+        b1, b2 = st.columns(2)
+        if b1.button("Probar con un ejemplo", width="stretch"):
+            _guardar_registro(S.limpiar(EJEMPLO))
+            st.rerun()
+        if b2.button("Borrar todo", width="stretch"):
+            _guardar_registro(S.registro_vacio())
+            st.rerun()
+
+    st.markdown("#### Tu registro de compras")
+    st.caption("Puedes corregir cualquier celda, agregar filas al final o borrar filas (selecciónalas y presiona Supr).")
+    editado = st.data_editor(
+        st.session_state["trans"], key=f"editor_trans_{st.session_state.get('trans_v', 0)}", num_rows="dynamic",
+        hide_index=True, width="stretch",
+        column_config={
+            "Activo": st.column_config.TextColumn("Activo", help="Símbolo de Yahoo Finance", required=True),
+            "Fecha": st.column_config.DateColumn("Fecha de compra", format="DD/MM/YYYY", required=True),
+            "Cantidad": st.column_config.NumberColumn("Cantidad", min_value=0.0, format="%.6g", required=True),
+            "Precio compra": st.column_config.NumberColumn("Precio por unidad", min_value=0.0, format="%.6g"),
+            "Comisión": st.column_config.NumberColumn("Comisión", min_value=0.0, format="%.6g", default=0.0),
+        })
+    st.session_state["trans_editado"] = editado
+    trans = S.limpiar(editado)
+    if len(trans):
+        st.download_button("Descargar mi registro (CSV)", trans.assign(Fecha=trans["Fecha"].dt.strftime("%Y-%m-%d"))
+                           .to_csv(index=False).encode("utf-8"), "mi_portafolio.csv", "text/csv", icon="💾")
+
+    if trans.empty:
+        st.info("Agrega tu primera compra o pulsa «Probar con un ejemplo» para ver cómo funciona.")
+    else:
+        mon_rep = st.segmented_control("Ver resultados en", ["COP", "USD", "EUR"], default="COP", key="mon_seg") or "COP"
+        try:
+            with st.spinner("Calculando el desempeño de tu portafolio…"):
+                activos = tuple(sorted(trans["Activo"].unique()))
+                periodo = S.periodo_desde(trans["Fecha"].min())
+                hist = cargar_precios(activos + (BENCH,), periodo)
+                sin_hist = [a for a in activos if a not in hist or hist[a].notna().sum() < 2]
+                if sin_hist:
+                    st.warning(f"No encontré precios de {', '.join(sin_hist)} en Yahoo; los dejo por fuera del análisis.")
+                trans_ok = trans[~trans["Activo"].isin(sin_hist)].copy()
+                if trans_ok.empty:
+                    raise ValueError("No hay activos con precios disponibles.")
+                activos = tuple(sorted(trans_ok["Activo"].unique()))
+                # precio de compra vacío -> cierre de ese día
+                for i, l in trans_ok[trans_ok["Precio compra"].isna()].iterrows():
+                    s = hist[l["Activo"]].dropna()
+                    trans_ok.at[i, "Precio compra"] = float(s.asof(l["Fecha"])) if l["Fecha"] >= s.index[0] else float(s.iloc[0])
+                fund_h, _ = cargar_fundamentales(activos)
+                info_h = fund_h.set_index("Ticker") if len(fund_h) else pd.DataFrame()
+                monedas, divisor = {}, {}
+                for a in activos:
+                    cur = info_h.loc[a, "Moneda"] if a in info_h.index else _moneda_probable(a)
+                    base_cur, d = MONEDAS_SUB.get(cur, (cur, 1))
+                    monedas[a], divisor[a] = base_cur, d
+                precios_h = hist[list(activos)].copy()
+                for a in activos:
+                    precios_h[a] = precios_h[a] / divisor[a]
+                    if divisor[a] != 1:
+                        trans_ok.loc[trans_ok["Activo"] == a, ["Precio compra", "Comisión"]] /= divisor[a]
+                idx = precios_h.index
+                fx_h = pd.DataFrame({a: _serie_fx(monedas[a], mon_rep, periodo, idx) for a in activos})
+                ev = S.evolucion(trans_ok, precios_h, fx_h)
+                precio_hoy = pd.Series({a: precios_h[a].dropna().iloc[-1] for a in activos})  # mismo dato que el gráfico
+                fx_hoy = fx_h.ffill().iloc[-1]
+                pos = S.posiciones(ev["lotes"], precio_hoy, fx_hoy)
+                pos["Nombre"] = pos["Activo"].map(lambda a: info_h.loc[a, "Nombre"] if a in info_h.index else a)
+                pos["Sector"] = pos["Activo"].map(lambda a: info_h.loc[a, "Sector"] if a in info_h.index else SECTORES.get(a, "Sin sector"))
+                pos["Tipo"] = pos["Activo"].map(lambda a: "Cripto" if a.endswith("-USD") or (a in info_h.index and info_h.loc[a, "Tipo"] == "Cripto") else "Acción")
+                pos["Moneda"] = pos["Activo"].map(monedas)
+                dfp = st.session_state.get("df")
+                pos["Puntaje"] = pos["Activo"].map(dfp.set_index("Ticker")["Puntaje"]) if dfp is not None and len(dfp) else np.nan
+                # índice de comparación en moneda de reporte
+                indice = None
+                if BENCH in hist:
+                    indice = hist[BENCH].reindex(idx).ffill() * _serie_fx("USD", mon_rep, periodo, idx)
+                    bench_val = S.simular_indice(ev["lotes"], indice, ev["valor"].index)
+                valor_hoy = float(pos["Valor actual"].sum())
+                flujos = [(r["Día efectivo"], -r["Costo reporte"]) for _, r in ev["lotes"].iterrows()]
+                tir = S.xirr(flujos + [(pd.Timestamp(date.today()), valor_hoy)])
+                tir_ind = S.xirr(flujos + [(pd.Timestamp(date.today()), float(bench_val.iloc[-1]))]) if indice is not None else np.nan
+                rf_s = tasa_libre_riesgo() or 0.04
+                riesgo = S.metricas_riesgo(ev["r"], rf_s, indice.pct_change(fill_method=None) if indice is not None else None)
+                ret_act = precios_h[list(activos)].ffill().pct_change(fill_method=None).dropna(how="all").tail(756)
+                corr = ret_act.corr() if len(activos) > 1 else None
+                corr_media = float(corr.values[np.triu_indices(len(corr), 1)].mean()) if corr is not None else None
+        except Exception as e:  # noqa: BLE001
+            st.error(f"No pude calcular el desempeño: {e}")
+            ev = None
+
+        if ev is not None:
+            invertido = float(pos["Invertido"].sum())
+            ganancia = valor_hoy - invertido
+            dias = (pd.Timestamp(date.today()) - trans_ok["Fecha"].min()).days
+            st.markdown(f"### Así va tu portafolio")
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Valor actual", dinero_corto(valor_hoy, mon_rep), help=dinero(valor_hoy, mon_rep))
+            k2.metric("Ganancia o pérdida", dinero_corto(ganancia, mon_rep), f"{ganancia / invertido:+.1%}", help=f"Invertido: {dinero(invertido, mon_rep)}")
+            if dias >= 90 and tir == tir:
+                k3.metric("Rentabilidad anual", f"{tir:.1%}", help="Tasa interna de retorno (XIRR): tiene en cuenta cuándo y cuánto invertiste.")
+            else:
+                k3.metric("Rentabilidad", f"{ganancia / invertido:.1%}", help="Con menos de 3 meses no anualizamos para no exagerar.")
+            if tir_ind == tir_ind and dias >= 90:
+                k4.metric("S&P 500 con las mismas compras", f"{tir_ind:.1%} anual", f"{(tir - tir_ind) * 100:+.1f} pts a tu favor" if tir >= tir_ind
+                          else f"{(tir - tir_ind) * 100:+.1f} pts", delta_color="normal")
+            elif indice is not None:
+                k4.metric("S&P 500 con las mismas compras", dinero_corto(float(bench_val.iloc[-1]), mon_rep))
+            if riesgo:
+                r1, r2, r3, r4 = st.columns(4)
+                r1.metric("Altibajos (volatilidad)", f"{riesgo['Volatilidad']:.1%}", help="Qué tanto se mueve el valor de tu portafolio en un año típico.")
+                r2.metric("Sharpe", f"{riesgo['Sharpe']:.2f}", help="Rendimiento extra sobre la tasa libre de riesgo por cada unidad de riesgo.")
+                r3.metric("Peor caída desde un máximo", f"{riesgo['Caída máxima']:.1%}", help="La mayor pérdida desde un pico hasta un valle.")
+                r4.metric("Beta frente al S&P 500", f"{riesgo['Beta']:.2f}" if "Beta" in riesgo else "—",
+                          help="1 = se mueve como el mercado; mayor que 1 = más sensible; menor que 1 = más defensivo.")
+            efecto_fx = float(pos["Efecto cambiario"].sum())
+            if abs(efecto_fx) > 0.005 * invertido:
+                st.caption(f"De tu resultado, {dinero(float(pos['Efecto precio'].sum()), mon_rep)} vienen del precio de los activos y "
+                           f"{dinero(efecto_fx, mon_rep)} del cambio en la tasa de cambio (al medir en {mon_rep}).")
+
+            st.markdown("#### Evolución de tu dinero")
+            fig = go.Figure()
+            fig.add_scatter(x=ev["invertido"].index, y=ev["invertido"], name="Lo que has invertido", mode="lines",
+                            line=dict(color=CREMA_TENUE, width=2, dash="dot", shape="hv"))
+            if indice is not None:
+                fig.add_scatter(x=bench_val.index, y=bench_val, name="Si lo hubieras puesto en el S&P 500", mode="lines",
+                                line=dict(color=ACERO, width=2))
+            fig.add_scatter(x=ev["valor"].index, y=ev["valor"], name="Tu portafolio", mode="lines",
+                            line=dict(color=CORAL, width=3), fill="tozeroy", fillcolor="rgba(255,107,91,0.08)")
+            fig.update_layout(height=400, yaxis_title=mon_rep, legend=dict(orientation="h", y=-0.15), hovermode="x unified")
+            st.plotly_chart(fig, width="stretch", theme=None)
+
+            st.markdown("#### Tus posiciones")
+            tabla = pos.assign(**{"Activo": pos["Nombre"].astype(str) + " · " + pos["Activo"]})[
+                ["Activo", "Cantidad", "Moneda", "Costo promedio", "Precio actual", "Invertido", "Valor actual", "Ganancia", "Rentabilidad", "Peso"]]
+            st.dataframe(tabla, hide_index=True, width="stretch", column_config={
+                "Cantidad": st.column_config.NumberColumn(format="%.6g"),
+                "Costo promedio": st.column_config.NumberColumn("Costo promedio (por unidad)", format="localized"),
+                "Precio actual": st.column_config.NumberColumn(format="localized"),
+                "Invertido": st.column_config.NumberColumn(f"Invertido ({mon_rep})", format="localized"),
+                "Valor actual": st.column_config.NumberColumn(f"Valor hoy ({mon_rep})", format="localized"),
+                "Ganancia": st.column_config.NumberColumn(f"Ganancia ({mon_rep})", format="localized"),
+                "Rentabilidad": st.column_config.NumberColumn(format="percent"),
+                "Peso": st.column_config.ProgressColumn("Peso", min_value=0, max_value=1, format="percent")})
+
+            g1, g2 = st.columns(2, gap="large")
+            pal = [CORAL, CREMA, ACERO, CORAL_SUAVE, CREMA_TENUE, CORAL_OSC, "#3A4E7A", "#C9B8A0"]
+            for col, campo, titulo in ((g1, "Activo", "Por activo"), (g2, "Sector", "Por sector")):
+                comp = pos.groupby(campo)["Valor actual"].sum().sort_values(ascending=False)
+                fig = go.Figure(go.Pie(labels=[str(x).replace(".CL", "") for x in comp.index], values=comp.values, hole=0.6, sort=False,
+                                       marker=dict(colors=pal * 3, line=dict(color=NAVY, width=2)), textinfo="label+percent",
+                                       textposition="outside", hovertemplate="%{label}: %{percent}<extra></extra>"))
+                fig.update_layout(height=320, showlegend=False, margin=dict(t=40, b=30, l=40, r=40),
+                                  title=dict(text=titulo, x=0.5, font=dict(size=15)))
+                col.plotly_chart(fig, width="stretch", theme=None, key=f"pie_seg_{campo}")
+
+            # Recomendaciones
+            st.markdown("### Recomendaciones para mejorar tu portafolio")
+            if not perfil:
+                st.caption("Haz la encuesta de perfil (arriba) para recibir recomendaciones ajustadas a ti; por ahora usamos un perfil moderado.")
+            recs = S.recomendaciones(pos, riesgo, perfil, corr_media, tir if dias >= 90 else None,
+                                     tir_ind if dias >= 90 else None, mon_rep)
+            cols_r = st.columns(2, gap="large")
+            for i, r in enumerate(recs):
+                cols_r[i % 2].markdown(f'<div class="card reco {r["nivel"]}"><h4>{ICONO[r["nivel"]]} {esc(r["titulo"])}</h4>'
+                                       f'<p style="margin:6px 0 0">{esc(r["texto"])}</p></div>', unsafe_allow_html=True)
+
+            # Rebalanceo sugerido
+            if len(activos) >= 2 and len(ret_act) > 120:
+                tipo_p = perfil["recomendado"] if perfil else "Máximo Sharpe"
+                cap_p = max(perfil["cap"] if perfil else 0.30, 1 / len(activos))
+                try:
+                    ret_r = M.retornos_diarios(precios_h[list(activos)].tail(800),
+                                               {a for a in activos if a.endswith("-USD")})
+                    mu_r, cov_r, _, _ = M.estimar_parametros(ret_r, "Ledoit-Wolf", "Histórica", rf_s, None, 0.055, M.periodos_por_anio(ret_r))
+                    w_obj = pd.Series(M.max_sharpe(mu_r, cov_r, rf_s, cap_p) if tipo_p == "Máximo Sharpe"
+                                      else M.min_varianza(mu_r, cov_r, cap_p), mu_r.index)
+                    reb = pos.set_index("Activo")[["Peso", "Valor actual"]].reindex(w_obj.index)
+                    reb["Peso sugerido"] = w_obj
+                    reb["Ajuste"] = (reb["Peso sugerido"] - reb["Peso"]) * valor_hoy
+                    reb["Qué hacer"] = np.where(reb["Ajuste"] > 0.01 * valor_hoy, "Comprar más",
+                                                np.where(reb["Ajuste"] < -0.01 * valor_hoy, "Reducir", "Mantener"))
+                    st.markdown(f"#### Rebalanceo hacia el portafolio de {tipo_p.lower()} con tus mismos activos")
+                    st.markdown('<div class="explica azul">Así quedaría tu portafolio si redistribuyeras el dinero entre los mismos activos '
+                                f'buscando el portafolio de <b>{tipo_p.lower()}</b> (máximo {cap_p:.0%} por activo). Una forma sencilla de '
+                                'acercarte sin vender es dirigir tus próximas compras a los activos marcados como «Comprar más».</div>',
+                                unsafe_allow_html=True)
+                    st.dataframe(reb.reset_index(names="Activo")[["Activo", "Peso", "Peso sugerido", "Ajuste", "Qué hacer"]],
+                                 hide_index=True, width="stretch", column_config={
+                                     "Peso": st.column_config.NumberColumn("Peso actual", format="percent"),
+                                     "Peso sugerido": st.column_config.NumberColumn(format="percent"),
+                                     "Ajuste": st.column_config.NumberColumn(f"Ajuste aproximado ({mon_rep})", format="localized")})
+                except Exception:  # noqa: BLE001
+                    pass
+            st.caption("Estas recomendaciones son orientativas y se basan en reglas generales y datos históricos; no son asesoría "
+                       "financiera profesional. Rentabilidades pasadas no garantizan rentabilidades futuras.")
 
 # ---------------------------------------------------------------------------
 # ¿Cómo funciona?

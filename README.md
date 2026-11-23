@@ -37,6 +37,7 @@ Se abre sola en el navegador en `http://localhost:8501`.
 - `app.py`: interfaz y descarga de datos (yfinance).
 - `.streamlit/config.toml`: colores de la app (azul marino, crema y coral). **Súbelo también a GitHub** (es una carpeta oculta: en Mac pulsa Cmd+Shift+. para verla).
 - `fuentes.py`: plan B de datos. Si Yahoo bloquea su “resumen” (pasa en servidores en la nube), la app lee los estados financieros de Yahoo (ingresos, utilidad, EBITDA, patrimonio, deuda, caja, acciones) y calcula ella misma P/E, P/B, P/S, EV/EBITDA, ROE, márgenes y crecimiento, convirtiendo monedas cuando la empresa reporta en otra (p. ej. Mineros reporta en USD).
+- `seguimiento.py`: pestaña «Mi seguimiento». A partir de las compras registradas calcula la evolución diaria, la ganancia (separando el efecto del precio y el de la tasa de cambio), la rentabilidad anual (XIRR), la volatilidad, el Sharpe, la peor caída, el beta, la comparación contra el S&P 500 con las mismas compras, y recomendaciones según el perfil. El registro se guarda descargándolo en CSV (la app no guarda datos en servidores).
 - `motor.py`: cálculos puros — puntajes, múltiplos, Ledoit-Wolf, optimización (SciPy SLSQP).
 
 ## Notas
