@@ -21,6 +21,9 @@ import yfinance as yf
 import fuentes as F
 import motor as M
 import seguimiento as S
+import montecarlo as MC
+import grafica_mc as G
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Radar · Inversión inteligente", page_icon="📡", layout="wide")
 
@@ -169,10 +172,10 @@ div[data-baseweb="popover"] *, [role="listbox"] * { color: #F4EDE0 !important; }
 /* navegación principal: botones grandes */
 .stApp [data-testid="stTabs"] [role="tablist"] { gap: 10px; flex-wrap: wrap; border: 0 !important; padding: 8px; margin-bottom: 14px;
   background: rgba(14,24,48,0.55); border-radius: 999px; border: 1px solid rgba(244,237,224,0.14) !important; }
-.stApp [data-testid="stTabs"] [role="tab"] { flex: 1 1 200px; min-height: 58px; padding: 12px 24px !important; justify-content: center;
+.stApp [data-testid="stTabs"] [role="tab"] { flex: 1 1 150px; min-height: 56px; padding: 12px 16px !important; justify-content: center;
   background: transparent !important; border: 1px solid transparent !important; border-radius: 999px !important; transition: background .2s, box-shadow .2s; }
-.stApp [data-testid="stTabs"] [role="tab"] p { font-family: 'Inter Tight', sans-serif !important; font-size: 20px !important;
-  font-weight: 500 !important; color: #D9D2C4 !important; }
+.stApp [data-testid="stTabs"] [role="tab"] p { font-family: 'Inter Tight', sans-serif !important; font-size: 18px !important;
+  font-weight: 500 !important; color: #D9D2C4 !important; white-space: nowrap; }
 .stApp [data-testid="stTabs"] [role="tab"]:hover { background: rgba(244,237,224,0.08) !important; }
 .stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"], .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] {
   background: #FF6B5B !important; box-shadow: 0 8px 24px rgba(255,107,91,0.40); }
@@ -563,7 +566,7 @@ st.markdown("""
     <circle class="punto" cx="594" cy="34" r="6.5" fill="#FF6B5B" stroke="#F4EDE0" stroke-width="2"/>
   </svg>
   <div class="sello">Datos en vivo</div>
-  <div class="rutas"><span>Oportunidades</span><span>Valoración</span><span>Portafolio</span><span>Seguimiento</span></div>
+  <div class="rutas"><span>Oportunidades</span><span>Valoración</span><span>Portafolio</span><span>Seguimiento</span><span>Proyecciones</span></div>
   <div class="titulo">Radar de <span>inversión</span>.</div>
   <p>Encuentra acciones y criptomonedas interesantes, entiende si su precio tiene sentido y descubre
   cómo repartir tu dinero entre ellas. Sin necesidad de ser experto.</p>
@@ -674,7 +677,7 @@ else:
         st.session_state.pop("sin_encuesta", None)
         st.rerun()
 
-tab1, tab2, tab3, tab_seg, tab4 = st.tabs(["1 · Explora", "2 · Analiza", "3 · Tu portafolio", "4 · Mi seguimiento", "¿Cómo funciona?"])
+tab1, tab2, tab3, tab_seg, tab_mc, tab4 = st.tabs(["1 · Explora", "2 · Analiza", "3 · Tu portafolio", "4 · Mi seguimiento", "5 · Proyecciones", "¿Cómo funciona?"])
 
 # ---------------------------------------------------------------------------
 # Paso 1: Explorar
@@ -1383,6 +1386,139 @@ with tab_seg:
                     pass
             st.caption("Estas recomendaciones son orientativas y se basan en reglas generales y datos históricos; no son asesoría "
                        "financiera profesional. Rentabilidades pasadas no garantizan rentabilidades futuras.")
+
+# ---------------------------------------------------------------------------
+# Paso 5: Proyecciones Monte Carlo
+# ---------------------------------------------------------------------------
+HORIZONTES = {"1 mes": 1 / 12, "3 meses": 0.25, "6 meses": 0.5, "1 año": 1.0, "2 años": 2.0}
+
+with tab_mc:
+    st.markdown('<div class="explica"><b>¿Cuánto podría valer un activo en el futuro?</b> Nadie lo sabe con certeza, pero sí podemos '
+                'estimar qué tan probable es cada escenario. La simulación Monte Carlo genera <b>miles de caminos posibles</b> del precio '
+                'usando cómo se ha movido en el pasado (su tendencia y sus altibajos) y luego cuenta cuántos terminan en cada nivel. '
+                'El <b>precio objetivo</b> es el valor del escenario del medio: la mitad de los caminos termina por encima y la mitad por debajo.</div>',
+                unsafe_allow_html=True)
+    base_mc = st.session_state.get("fund")
+    df_mc = st.session_state.get("df")
+    opciones_mc = list(dict.fromkeys(([] if df_mc is None else df_mc["Ticker"].tolist())
+                                     + ([] if base_mc is None else base_mc["Ticker"].tolist())
+                                     + sorted({t for g in GRUPOS.values() for t in g.split()})))
+    with st.form("form_mc"):
+        m1, m2, m3 = st.columns([2, 2, 1])
+        activo_mc = m1.selectbox("Activo", opciones_mc, index=0, accept_new_options=True,
+                                 help="Acciones o criptomonedas. Si no está en la lista, escribe su símbolo de Yahoo Finance.")
+        horizonte = m2.select_slider("¿A cuánto tiempo?", list(HORIZONTES), value="1 año")
+        n_sim = m3.selectbox("Simulaciones", [1000, 5000, 10000], index=1, format_func=lambda n: f"{n:,}".replace(",", "."))
+        with st.expander("⚙️ Opciones del modelo"):
+            o1, o2, o3 = st.columns(3)
+            modelo = o1.radio("Modelo", ["Bootstrap", "GBM"], format_func=lambda m: {
+                "Bootstrap": "Bootstrap histórico (recomendado)", "GBM": "Movimiento browniano geométrico"}[m],
+                help="Bootstrap reutiliza días reales del pasado, incluidos los días extremos. GBM supone que los retornos siguen una curva normal.")
+            tendencia = o2.radio("Tendencia de precio", ["Moderada", "Histórica", "Sin tendencia"], help=(
+                "Histórica: supone que seguirá subiendo/bajando al mismo ritmo del pasado (suele exagerar). "
+                "Moderada: mitad histórica y mitad tasa libre de riesgo. Sin tendencia: solo la tasa libre de riesgo."))
+            hist_mc = o3.selectbox("Historia usada", ["1y", "3y", "5y"], index=1,
+                                   format_func=lambda p: {"1y": "1 año", "3y": "3 años", "5y": "5 años"}[p])
+            objetivo_mc = st.number_input("¿Tienes un precio en mente? (opcional)", min_value=0.0, value=None, format="%.6g",
+                                          placeholder="Ej. el precio al que te gustaría vender",
+                                          help="Calculamos la probabilidad de que el precio lo alcance.")
+        correr = st.form_submit_button("Simular escenarios", type="primary", icon="🎲")
+
+    if correr:
+        t_mc = (activo_mc or "").strip().upper()
+        with st.spinner(f"Simulando {n_sim:,} escenarios para {t_mc}…".replace(",", ".")):
+            try:
+                h = cargar_precios((t_mc,), hist_mc)
+                if t_mc not in h or h[t_mc].notna().sum() < 120:
+                    raise ValueError(f"No hay suficiente historia de precios de {t_mc} en Yahoo (se necesitan al menos 6 meses).")
+                par = MC.parametros(h[t_mc])
+                rf_mc = tasa_libre_riesgo() or 0.04
+                sim_mc = MC.simular(par, HORIZONTES[horizonte], int(n_sim), modelo, tendencia, rf_mc)
+                res_mc = MC.resumen(sim_mc, par["s0"], objetivo_mc or None)
+                info_mc = base_mc.set_index("Ticker").loc[t_mc] if base_mc is not None and t_mc in set(base_mc["Ticker"]) else None
+                st.session_state["mc"] = dict(
+                    t=t_mc, horizonte=horizonte, par={k: v for k, v in par.items() if k != "r"}, res=res_mc, modelo=modelo,
+                    tendencia=tendencia, n=int(n_sim), rf=rf_mc, anim=MC.datos_animacion(sim_mc, res_mc),
+                    moneda=(info_mc["Moneda"] if info_mc is not None else _moneda_probable(t_mc)),
+                    nombre=(info_mc["Nombre"] if info_mc is not None else t_mc))
+            except Exception as e:  # noqa: BLE001
+                st.error(f"No pude simular: {e}")
+
+    mc = st.session_state.get("mc")
+    if not mc:
+        st.info("Elige un activo y pulsa «Simular escenarios». La gráfica se anima mostrando cómo se generan los escenarios.")
+    else:
+        res, par, mon = mc["res"], mc["par"], mc["moneda"]
+        fmtp = lambda v: f"{v:,.0f}" if abs(v) >= 1000 else (f"{v:,.2f}" if abs(v) >= 1 else f"{v:,.5f}")
+        st.markdown(f"### {esc(mc['nombre'])} · en {mc['horizonte']}")
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Precio hoy", f"{fmtp(res['s0'])} {mon}")
+        k2.metric("Precio objetivo (mediana)", f"{fmtp(res['mediana'])} {mon}", f"{res['ret_mediano']:+.1%}",
+                  help="La mitad de los escenarios termina por encima de este precio y la mitad por debajo.")
+        k3.metric("Escenario pesimista (P5)", f"{fmtp(res['pct'][5])} {mon}", f"{res['pct'][5] / res['s0'] - 1:+.1%}",
+                  help="Solo 5 de cada 100 escenarios terminan por debajo de este precio.")
+        k4.metric("Escenario optimista (P95)", f"{fmtp(res['pct'][95])} {mon}", f"{res['pct'][95] / res['s0'] - 1:+.1%}",
+                  help="Solo 5 de cada 100 escenarios terminan por encima de este precio. Entre P5 y P95 queda el 90% de los casos.")
+
+        html_mc = G.html_simulacion(mc["anim"], f"{esc(mc['t'])} · <b>{mc['horizonte']}</b>", mon, mc["n"], 470)
+        if hasattr(st, "iframe"):  # Streamlit reciente
+            st.iframe(html_mc, height=476)
+        else:  # versiones anteriores
+            components.html(html_mc, height=476)
+
+        probs = [("Que termine más alto que hoy", res["prob_sube"]), ("Que suba más de 20%", res["prob_sube20"]),
+                 ("Que caiga más de 20%", res["prob_cae20"])]
+        if res.get("objetivo"):
+            probs += [(f"Que termine {'por encima' if res['objetivo'] >= res['s0'] else 'por debajo'} de tu precio ({fmtp(res['objetivo'])})",
+                       res["prob_objetivo"]),
+                      ("Que lo toque en algún momento del periodo", res["prob_toca_objetivo"])]
+        st.markdown("#### Probabilidades")
+        cols_p = st.columns(len(probs))
+        for k, (col, (txt, pr)) in enumerate(zip(cols_p, probs)):
+            col.markdown(f'<div class="card" style="animation-delay:{k * 0.08:.2f}s"><div class="sub">{esc(txt)}</div>'
+                         f'<div class="big">{pr:.0%}</div><div class="barra"><div style="width:{max(pr * 100, 1.5):.1f}%"></div></div></div>',
+                         unsafe_allow_html=True)
+
+        # Comparar con otras formas de estimar el precio objetivo
+        filas_po = [{"Método": "Monte Carlo (mediana)", "Precio objetivo": res["mediana"], "Horizonte": mc["horizonte"]}]
+        info_po = st.session_state.get("fund")
+        if info_po is not None and mc["t"] in set(info_po["Ticker"]):
+            fi = info_po.set_index("Ticker").loc[mc["t"]]
+            if pd.notna(fi.get("Upside analistas", np.nan)):
+                filas_po.append({"Método": "Consenso de analistas", "Precio objetivo": fi["Precio"] * (1 + fi["Upside analistas"]),
+                                 "Horizonte": "12 meses"})
+        if df_mc is not None and mc["t"] in set(df_mc["Ticker"]):
+            sect = df_mc.set_index("Ticker").loc[mc["t"], "Sector"]
+            pares_mc = df_mc.loc[(df_mc["Sector"] == sect) & (df_mc["Ticker"] != mc["t"]), "Ticker"].tolist()
+            if pares_mc:
+                vm = M.valoracion_multiplos(df_mc, mc["t"], pares_mc)
+                if len(vm):
+                    p_hoy_df = df_mc.set_index("Ticker").loc[mc["t"], "Precio"]
+                    filas_po.append({"Método": "Valoración por múltiplos (pares)",
+                                     "Precio objetivo": vm["Precio implícito"].median() * res["s0"] / p_hoy_df, "Horizonte": "Valor justo hoy"})
+        if len(filas_po) > 1:
+            st.markdown("#### Tres formas de estimar el precio objetivo")
+            po = pd.DataFrame(filas_po)
+            po["Frente a hoy"] = po["Precio objetivo"] / res["s0"] - 1
+            st.dataframe(po, hide_index=True, width="stretch", column_config={
+                "Precio objetivo": st.column_config.NumberColumn(f"Precio objetivo ({mon})", format="localized"),
+                "Frente a hoy": st.column_config.NumberColumn(format="percent")})
+            st.caption("Si los tres métodos apuntan en la misma dirección, la señal es más sólida. Si se contradicen, conviene más cautela.")
+
+        st.caption(f"Modelo: {'bootstrap histórico' if mc['modelo'] == 'Bootstrap' else 'movimiento browniano geométrico'} · "
+                   f"tendencia {mc['tendencia'].lower()} · volatilidad histórica {par['sigma']:.1%} anual · rendimiento histórico "
+                   f"{par['mu']:.1%} anual · {par['n_obs']} días de datos · en el 5% de los peores escenarios la pérdida supera "
+                   f"{res['var95']:.0%} (VaR 95%).")
+        with st.expander("📐 ¿Cómo funciona la simulación?"):
+            st.markdown("Se estiman la tendencia $\\mu$ y la volatilidad $\\sigma$ con los retornos diarios del pasado. Luego, para cada "
+                        "escenario, el precio avanza día a día:")
+            st.latex(r"S_{t+\Delta t}=S_t\,\exp\!\Big[\big(\mu-\tfrac{\sigma^2}{2}\big)\Delta t+\sigma\sqrt{\Delta t}\;Z_t\Big],\qquad Z_t\sim N(0,1)")
+            st.markdown("En el **bootstrap**, en lugar de $Z_t$ se usa un retorno real tomado al azar de la historia, lo que conserva los "
+                        "días extremos. La **tendencia moderada** usa $\\mu^{*}=\\tfrac12\\mu_{\\text{hist}}+\\tfrac12 r_f$. Con miles de "
+                        "escenarios se calculan los percentiles del precio final:")
+            st.latex(r"\text{Precio objetivo}=P_{50}(S_T),\qquad \Pr(S_T>S_0)=\frac{\#\{\,i:\,S_T^{(i)}>S_0\,\}}{N}")
+            st.markdown("**Limitación importante:** el modelo supone que el futuro se parecerá estadísticamente al pasado. No anticipa "
+                        "noticias, crisis ni cambios en la empresa. Úsalo como un mapa de escenarios posibles, no como una predicción exacta.")
 
 # ---------------------------------------------------------------------------
 # ¿Cómo funciona?
