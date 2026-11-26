@@ -57,20 +57,33 @@ def cargar_csv(archivo, zona_horaria: str = NY) -> pd.DataFrame:
              "last": "close", "price": "close"}
     df = df.rename(columns={k: v for k, v in alias.items() if k in df.columns})
 
-    col_t = next((c for c in ("datetime", "timestamp", "ts_event", "date_time", "time") if c in df.columns), None)
-    if col_t is None and "date" in df.columns:
-        if "time" in df.columns:
-            ts = pd.to_datetime(df["date"].astype(str) + " " + df["time"].astype(str))
-        else:
-            ts = pd.to_datetime(df["date"])
-    elif col_t is not None:
-        ts = pd.to_datetime(df[col_t], utc=False)
+    def _parsear(col: pd.Series) -> pd.Series:
+        """Texto con o sin zona horaria, o números Unix (s, ms, µs o ns, como TradingView o Databento)."""
+        if pd.api.types.is_numeric_dtype(col):
+            v = float(col.abs().median())
+            unidad = "ns" if v > 1e17 else "us" if v > 1e14 else "ms" if v > 1e11 else "s"
+            return pd.to_datetime(col, unit=unidad, utc=True)
+        txt = col.astype(str).str.strip()
+        con_zona = txt.str.contains(r"(?:Z|[+-]\d{2}:?\d{2})$", regex=True).mean() > 0.5
+        # con zona (p. ej. -04:00 y -05:00 por el horario de verano) se pasa todo a UTC primero
+        return pd.to_datetime(txt, utc=con_zona, format="mixed")
+
+    if "date" in df.columns and "time" in df.columns:          # NinjaTrader y similares: fecha y hora separadas
+        ts = _parsear(df["date"].astype(str) + " " + df["time"].astype(str))
     else:
-        raise ValueError("No encontré una columna de fecha/hora (datetime, timestamp, date+time).")
+        col_t = next((c for c in ("datetime", "timestamp", "ts_event", "date_time", "time", "date") if c in df.columns), None)
+        if col_t is None:
+            raise ValueError("No encontré una columna de fecha/hora (datetime, timestamp, time o date + time).")
+        ts = _parsear(df[col_t])
 
     ts = pd.DatetimeIndex(ts)
-    ts = ts.tz_localize(zona_horaria, ambiguous="infer", nonexistent="shift_forward") if ts.tz is None else ts
+    if ts.tz is None:
+        try:
+            ts = ts.tz_localize(zona_horaria, ambiguous="infer", nonexistent="shift_forward")
+        except Exception:  # horas repetidas del cambio de horario sin orden claro: se descartan (están fuera de la sesión)
+            ts = ts.tz_localize(zona_horaria, ambiguous="NaT", nonexistent="shift_forward")
     df.index = ts.tz_convert(NY)
+    df = df[df.index.notna()]
 
     faltan = [c for c in ("open", "high", "low", "close") if c not in df.columns]
     if faltan:
@@ -138,3 +151,42 @@ def barras_rth_30m(df: pd.DataFrame, min_barras_dia: int = 13) -> pd.DataFrame:
                                                 f"{(APERTURA_MIN + 30 * (k + 1)) % 60:02d}")
     cols = ["fecha", "k", "hora_cierre", "open", "high", "low", "close", "volume", "vwap"]
     return agg[cols].sort_values(["fecha", "k"]).reset_index(drop=True)
+
+
+# --------------------------------------------------------------------------- #
+# Datos de ejemplo (simulados) para probar la herramienta sin un CSV
+# --------------------------------------------------------------------------- #
+def datos_ejemplo(dias: int = 520, semilla: int = 7, precio_inicial: float = 5800.0) -> pd.DataFrame:
+    """
+    Barras de 5 minutos SIMULADAS de la sesión regular (no son datos reales del MES).
+    La mayoría de días son ruido; ~20% traen algo de tendencia intradía, para que la
+    estrategia tenga algo que capturar y se pueda ver cómo funciona cada parte.
+    """
+    rng = np.random.default_rng(semilla)
+    fechas = pd.bdate_range(end=pd.Timestamp.today().normalize() - pd.Timedelta(days=1), periods=dias)
+    n = 78                                               # barras de 5 min entre 9:30 y 16:00
+    vol_dia = 0.010 * np.exp(rng.normal(0, 0.35, dias))  # volatilidad que cambia de un día a otro
+    gaps = rng.normal(0.0002, 0.0045, dias)
+    tendencia = np.where(rng.random(dias) < 0.20, rng.normal(0, 0.0002, dias), 0.0)  # ~1,5% de tendencia en un día con tendencia
+    rets = (rng.standard_t(4, (dias, n)) / np.sqrt(2)) * (vol_dia[:, None] / np.sqrt(n)) + tendencia[:, None]
+    cierres_dia = np.empty(dias)
+    filas = []
+    precio = precio_inicial
+    minutos = 9 * 60 + 30 + 5 * np.arange(n)
+    for i, f in enumerate(fechas):
+        apertura = precio * (1 + gaps[i])
+        cierres = apertura * np.cumprod(1 + rets[i])
+        aperturas = np.r_[apertura, cierres[:-1]]
+        ruido = np.abs(rng.normal(0, vol_dia[i] / np.sqrt(n) * 0.6, (2, n)))
+        altos = np.maximum(aperturas, cierres) * (1 + ruido[0])
+        bajos = np.minimum(aperturas, cierres) * (1 - ruido[1])
+        vol = rng.integers(800, 4000, n) * (1.8 - np.sin(np.linspace(0, np.pi, n)))  # más volumen en apertura y cierre
+        t = pd.Timestamp(f).tz_localize(NY) + pd.to_timedelta(minutos, unit="m")
+        filas.append(pd.DataFrame({"open": aperturas, "high": altos, "low": bajos, "close": cierres, "volume": vol}, index=t))
+        precio = cierres[-1]
+        cierres_dia[i] = precio
+    df = pd.concat(filas)
+    # redondeo al tick del MES (0,25)
+    for c in ("open", "high", "low", "close"):
+        df[c] = (df[c] / 0.25).round() * 0.25
+    return df

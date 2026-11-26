@@ -22,6 +22,8 @@ import fuentes as F
 import motor as M
 import seguimiento as S
 import montecarlo as MC
+import noise_area as NA
+from dataclasses import replace
 import grafica_mc as G
 import streamlit.components.v1 as components
 
@@ -172,9 +174,9 @@ div[data-baseweb="popover"] *, [role="listbox"] * { color: #F4EDE0 !important; }
 /* navegación principal: botones grandes */
 .stApp [data-testid="stTabs"] [role="tablist"] { gap: 10px; flex-wrap: wrap; border: 0 !important; padding: 8px; margin-bottom: 14px;
   background: rgba(14,24,48,0.55); border-radius: 999px; border: 1px solid rgba(244,237,224,0.14) !important; }
-.stApp [data-testid="stTabs"] [role="tab"] { flex: 1 1 150px; min-height: 56px; padding: 12px 16px !important; justify-content: center;
+.stApp [data-testid="stTabs"] [role="tab"] { flex: 1 1 120px; min-height: 54px; padding: 10px 12px !important; justify-content: center;
   background: transparent !important; border: 1px solid transparent !important; border-radius: 999px !important; transition: background .2s, box-shadow .2s; }
-.stApp [data-testid="stTabs"] [role="tab"] p { font-family: 'Inter Tight', sans-serif !important; font-size: 18px !important;
+.stApp [data-testid="stTabs"] [role="tab"] p { font-family: 'Inter Tight', sans-serif !important; font-size: 16.5px !important;
   font-weight: 500 !important; color: #D9D2C4 !important; white-space: nowrap; }
 .stApp [data-testid="stTabs"] [role="tab"]:hover { background: rgba(244,237,224,0.08) !important; }
 .stApp [data-testid="stTabs"] [role="tab"][aria-selected="true"], .stApp [data-testid="stTabs"] [role="tab"][data-selected="true"] {
@@ -237,6 +239,24 @@ div[data-testid="stMetric"] { animation: subir .6s cubic-bezier(.2,.7,.2,1) both
   .titulo, .hero p, .card, div[data-testid="stMetric"], .encuesta, .perfil-card, .barra > div, .sello,
   .beneficios div:first-child:before { animation: none !important; }
 }
+/* animación Noise Area */
+.na-anim { border: 1px solid rgba(244,237,224,0.14); border-radius: 20px; padding: 10px 14px 4px; margin: 4px 0 18px;
+  background: rgba(14,24,48,0.55); }
+.na-anim svg { width: 100%; height: auto; max-height: 280px; display: block; }
+.na-ejes line { stroke: rgba(244,237,224,0.2); } .na-ejes text { fill: #9AA3B8; font: 12px Inter, sans-serif; }
+.na-zona { opacity: 0; animation: aparecer 1s ease .2s forwards; }
+.na-borde { fill: none; stroke: #7D9BD1; stroke-width: 1.6; stroke-dasharray: 1; stroke-dashoffset: 1; animation: trazo 1.4s ease .2s forwards; }
+.na-tz { fill: #AFC2E6; font: 500 13px Inter, sans-serif; opacity: 0; animation: aparecer .8s ease 1.2s forwards; }
+.na-precio { fill: none; stroke: #FF6B5B; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 6px rgba(255,107,91,.6)); animation: trazo 3.2s cubic-bezier(.45,0,.3,1) 1.4s forwards; }
+.na-stop { fill: none; stroke: #F4EDE0; stroke-width: 1.6; stroke-dasharray: 1; stroke-dashoffset: 1; opacity: .8;
+  animation: trazo 2.2s ease 2.8s forwards; }
+.na-in, .na-out, .na-st { opacity: 0; }
+.na-in { animation: aparecer .5s ease 2.4s forwards; } .na-out { animation: aparecer .5s ease 4.5s forwards; }
+.na-st { fill: #F4EDE0; font: 12px Inter, sans-serif; animation: aparecer .6s ease 3.6s forwards; }
+.na-in circle { fill: #F4EDE0; stroke: #FF6B5B; stroke-width: 3; } .na-out circle { fill: #FF6B5B; stroke: #F4EDE0; stroke-width: 2; }
+.na-in text, .na-out text { fill: #F4EDE0; font: 600 13px Inter, sans-serif; }
+@media (prefers-reduced-motion: reduce) { .na-zona, .na-borde, .na-tz, .na-precio, .na-stop, .na-in, .na-out, .na-st { animation: none !important; opacity: 1; stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
 </style>
 """, unsafe_allow_html=True)
@@ -566,7 +586,7 @@ st.markdown("""
     <circle class="punto" cx="594" cy="34" r="6.5" fill="#FF6B5B" stroke="#F4EDE0" stroke-width="2"/>
   </svg>
   <div class="sello">Datos en vivo</div>
-  <div class="rutas"><span>Oportunidades</span><span>Valoración</span><span>Portafolio</span><span>Seguimiento</span><span>Proyecciones</span></div>
+  <div class="rutas"><span>Oportunidades</span><span>Valoración</span><span>Portafolio</span><span>Seguimiento</span><span>Proyecciones</span><span>Day trading</span></div>
   <div class="titulo">Radar de <span>inversión</span>.</div>
   <p>Encuentra acciones y criptomonedas interesantes, entiende si su precio tiene sentido y descubre
   cómo repartir tu dinero entre ellas. Sin necesidad de ser experto.</p>
@@ -677,7 +697,7 @@ else:
         st.session_state.pop("sin_encuesta", None)
         st.rerun()
 
-tab1, tab2, tab3, tab_seg, tab_mc, tab4 = st.tabs(["1 · Explora", "2 · Analiza", "3 · Tu portafolio", "4 · Mi seguimiento", "5 · Proyecciones", "¿Cómo funciona?"])
+tab1, tab2, tab3, tab_seg, tab_mc, tab_dt, tab4 = st.tabs(["1 · Explora", "2 · Analiza", "3 · Tu portafolio", "4 · Mi seguimiento", "5 · Proyecciones", "6 · Day trading", "¿Cómo funciona?"])
 
 # ---------------------------------------------------------------------------
 # Paso 1: Explorar
@@ -1519,6 +1539,277 @@ with tab_mc:
             st.latex(r"\text{Precio objetivo}=P_{50}(S_T),\qquad \Pr(S_T>S_0)=\frac{\#\{\,i:\,S_T^{(i)}>S_0\,\}}{N}")
             st.markdown("**Limitación importante:** el modelo supone que el futuro se parecerá estadísticamente al pasado. No anticipa "
                         "noticias, crisis ni cambios en la empresa. Úsalo como un mapa de escenarios posibles, no como una predicción exacta.")
+
+# ---------------------------------------------------------------------------
+# Paso 6: Day trading · Backtest Noise Area en MES
+# ---------------------------------------------------------------------------
+HORAS_NA = [f"{(570 + 30 * (k + 1)) // 60:02d}:{(570 + 30 * (k + 1)) % 60:02d}" for k in range(13)]
+
+ANIM_NA = """
+<div class="na-anim">
+<svg viewBox="0 0 720 260" preserveAspectRatio="xMidYMid meet" aria-label="Cómo funciona la zona de ruido">
+  <defs><linearGradient id="na-zona" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#7D9BD1" stop-opacity=".30"/><stop offset=".5" stop-color="#7D9BD1" stop-opacity=".12"/>
+    <stop offset="1" stop-color="#7D9BD1" stop-opacity=".30"/></linearGradient></defs>
+  <g class="na-ejes"><line x1="40" y1="225" x2="700" y2="225"/>
+    <text x="40" y="246">9:30</text><text x="200" y="246">11:00</text><text x="360" y="246">12:30</text>
+    <text x="520" y="246">14:00</text><text x="672" y="246">16:00</text></g>
+  <path class="na-zona" d="M40,130 C160,100 320,82 700,62 L700,198 C320,178 160,160 40,130 Z" fill="url(#na-zona)"/>
+  <path class="na-borde" pathLength="1" d="M40,130 C160,100 320,82 700,62"/>
+  <path class="na-borde" pathLength="1" d="M40,130 C160,160 320,178 700,198"/>
+  <text class="na-tz" x="470" y="128">Zona de ruido: aquí no se opera</text>
+  <polyline class="na-precio" pathLength="1" points="40,130 70,122 95,138 120,118 150,134 175,112 200,126 228,104 250,92 275,84 300,78 330,70 360,74 390,60 420,66 450,52 480,58 510,46 540,52 570,40 600,46 630,36 660,42 690,34"/>
+  <polyline class="na-stop" pathLength="1" points="250,104 300,96 360,90 420,82 480,76 540,70 600,64 660,58 690,56"/>
+  <g class="na-in"><circle cx="250" cy="92" r="7"/><text x="210" y="74">Rompe la banda: compra</text></g>
+  <g class="na-out"><circle cx="690" cy="34" r="7"/><text x="560" y="20">16:00 · cierra todo</text></g>
+  <text class="na-st" x="430" y="104">Stop que sube con el VWAP</text>
+</svg></div>
+"""
+
+
+def _barras_csv_na(contenido: bytes, zona: str):
+    return NA.barras_rth_30m(NA.cargar_csv(contenido, zona))
+
+
+_barras_csv_na = st.cache_data(show_spinner=False)(_barras_csv_na)
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _barras_yahoo_na():
+    return NA.barras_rth_30m(NA.cargar_yahoo("MES=F", "30m", "60d"))
+
+
+@st.cache_data(show_spinner=False)
+def _barras_ejemplo_na():
+    return NA.barras_rth_30m(NA.datos_ejemplo())
+
+
+with tab_dt:
+    st.markdown('<div class="explica"><b>Momentum intradía "Noise Area"</b> (Zarattini, Aziz y Barbon, 2024, <i>Beat the Market</i>) '
+                'aplicado a los micro-futuros del S&amp;P 500 (<b>MES</b>, 5 USD por punto). Cada día se dibuja una '
+                '<b>zona de ruido</b> alrededor del precio de apertura, con el tamaño de los movimientos normales de los últimos 14 días. '
+                'Mientras el precio se mueve dentro de esa zona, es ruido y no se opera. Cuando la rompe, hay <b>momentum</b>: '
+                'se entra a favor del movimiento, con un stop que sigue al VWAP, y todo se cierra antes de las 4:00 p. m. de Nueva York. '
+                'Aquí puedes probarla con datos históricos y simular si pasaría la evaluación de una prop firm.</div>',
+                unsafe_allow_html=True)
+    st.markdown(ANIM_NA, unsafe_allow_html=True)
+
+    with st.form("form_na"):
+        st.markdown("#### 1 · Datos")
+        d1, d2 = st.columns([2, 3], gap="large")
+        fuente_na = d1.radio("Fuente", ["Ejemplo", "CSV", "Yahoo"], format_func=lambda f: {
+            "Ejemplo": "Datos de ejemplo (simulados)", "CSV": "Mi archivo CSV (recomendado)",
+            "Yahoo": "Yahoo Finance (MES=F, ~60 días)"}[f])
+        with d2:
+            archivo_na = st.file_uploader("CSV de MES o ES en barras de 1, 5, 15 o 30 min", type=["csv", "txt"],
+                                          help="Columnas: datetime/timestamp (o date + time), open, high, low, close, volume. "
+                                               "Puedes exportarlo de NinjaTrader, TradingView, Databento o FirstRate Data.")
+            zona_na = st.selectbox("Zona horaria de los datos del CSV", ["America/New_York", "UTC", "America/Chicago", "America/Bogota"])
+        st.caption("Los datos de ejemplo son inventados: sirven para ver cómo funciona la herramienta, no para evaluar la estrategia. "
+                   "Yahoo solo entrega unos 60 días de barras de 30 minutos. Para sacar conclusiones usa un CSV de 2 años o más.")
+
+        st.markdown("#### 2 · Prop firm")
+        p1, p2 = st.columns([1, 3], gap="large")
+        preset_na = p1.selectbox("Reglas de evaluación", list(NA.PRESETS), index=1)
+        base_na = NA.PRESETS[preset_na]
+        with p2.expander("Ajustar reglas (verifícalas en la página oficial de la firma)", expanded=preset_na == "Personalizada"):
+            r1, r2, r3 = st.columns(3)
+            meta_na = r1.number_input("Meta de ganancia (USD)", 0.0, value=float(base_na.meta), step=250.0)
+            mll_na = r2.number_input("Pérdida máxima trailing EOD (USD)", 0.0, value=float(base_na.mll), step=250.0)
+            bloq_na = r3.number_input("El trailing se congela en inicial + (USD)", value=float(base_na.bloqueo), step=50.0)
+            r4, r5, r6 = st.columns(3)
+            dll_na = r4.number_input("Límite de pérdida diaria (0 = no tiene)", 0.0, value=float(base_na.dll), step=100.0)
+            cons_na = r5.slider("Consistencia: mejor día ≤ % de la ganancia", 0, 100, int(base_na.consistencia * 100), 5)
+            micros_na = r6.number_input("Máximo de micros", 1, 200, int(base_na.max_contratos_micro))
+
+        st.markdown("#### 3 · Estrategia, tamaño y costos")
+        e1, e2, e3, e4 = st.columns(4)
+        riesgo_na = e1.number_input("Riesgo por trade (USD)", 10.0, value=150.0, step=10.0,
+                                    help="Lo máximo que pierdes si salta el stop. Con 50K de cuenta y 2.000 de pérdida máxima, 150 USD son unas 13 pérdidas seguidas.")
+        mult_na = e2.slider("Ancho de la zona (multiplicador)", 0.5, 2.0, 1.0, 0.05, help="1,0 = el del estudio. Más ancho = menos operaciones, más selectivas.")
+        slip_na = e3.number_input("Slippage por lado (ticks)", 0.0, value=1.0, step=0.5)
+        com_na = e4.number_input("Comisión ida y vuelta (USD/contrato)", 0.0, value=1.50, step=0.10)
+        with st.expander("⚙️ Más opciones de la estrategia"):
+            o1, o2, o3, o4 = st.columns(4)
+            lookback_na = o1.number_input("Días para medir el ruido", 5, 60, 14)
+            k_ini_na = o2.selectbox("Primera decisión (NY)", HORAS_NA[:-1], index=0)
+            k_fin_na = o3.selectbox("Última entrada nueva (NY)", HORAS_NA[:-1], index=11)
+            perd_na = o4.number_input("Parar el día tras N pérdidas (0 = sin límite)", 0, 10, 2)
+            o5, o6, o7, o8 = st.columns(4)
+            vwap_na = o5.checkbox("Stop = máx(banda, VWAP)", True)
+            cortos_na = o6.checkbox("Permitir cortos", True)
+            duro_na = o7.checkbox("Stop como orden real", True, help="Recomendado en prop firm: limita la pérdida dentro de cada media hora.")
+            forzar_na = o8.checkbox("Si da 0 contratos, entrar con 1", False)
+            o9, o10, o11, o12 = st.columns(4)
+            modo_na = o9.radio("Tamaño", ["riesgo", "volatilidad"], format_func=lambda m: {
+                "riesgo": "Riesgo fijo (prop firm)", "volatilidad": "Volatilidad objetivo (estudio)"}[m])
+            stop_min_na = o10.number_input("Stop mínimo para dimensionar (pts)", 0.25, value=3.0, step=0.25)
+            stop_max_na = o11.number_input("No entrar si el stop está a más de (pts, 0 = sin filtro)", 0.0, value=0.0, step=1.0)
+            capital_na = o12.number_input("Capital (modo volatilidad)", 1000.0, value=50_000.0, step=5000.0)
+            n_boot_na = st.select_slider("Trayectorias del bootstrap", [1000, 2000, 5000, 10000], 2000)
+        correr_na = st.form_submit_button("Correr backtest", type="primary", icon="⚡")
+
+    if correr_na:
+        try:
+            with st.spinner("Preparando las barras de 30 minutos…"):
+                if fuente_na == "CSV":
+                    if archivo_na is None:
+                        raise ValueError("Sube un archivo CSV o elige los datos de ejemplo.")
+                    barras_na = _barras_csv_na(archivo_na.getvalue(), zona_na)
+                elif fuente_na == "Yahoo":
+                    barras_na = _barras_yahoo_na()
+                else:
+                    barras_na = _barras_ejemplo_na()
+            reglas_na = replace(base_na, meta=meta_na, mll=mll_na, bloqueo=bloq_na, dll=dll_na,
+                                consistencia=cons_na / 100, max_contratos_micro=int(micros_na))
+            par_na = NA.Parametros(
+                lookback=int(lookback_na), multiplicador=float(mult_na), usar_vwap_stop=vwap_na, permitir_cortos=cortos_na,
+                primera_k=HORAS_NA.index(k_ini_na), ultima_k_entrada=HORAS_NA.index(k_fin_na), max_perdidas_dia=int(perd_na),
+                slippage_ticks=float(slip_na), comision_rt=float(com_na), modo_tamano=modo_na, riesgo_usd=float(riesgo_na),
+                stop_min_puntos=float(stop_min_na), stop_max_puntos=float(stop_max_na), forzar_un_contrato=forzar_na,
+                max_contratos=int(reglas_na.max_contratos_micro), capital=float(capital_na), stop_duro=duro_na)
+            with st.spinner("Corriendo el backtest y simulando evaluaciones…"):
+                tr_na, di_na, ba_na = NA.backtest(barras_na, par_na)
+                vent_na = NA.ventanas_historicas(di_na, reglas_na) if not di_na.empty else pd.DataFrame()
+                boot_na = NA.bootstrap(di_na, reglas_na, n=int(n_boot_na)) if not di_na.empty else pd.DataFrame()
+            st.session_state["na_res"] = dict(trades=tr_na, diario=di_na, bandas=ba_na, vent=vent_na, boot=boot_na, reglas=reglas_na,
+                                              saltados=di_na.attrs.get("saltados", {}), fuente=fuente_na, par=par_na)
+        except Exception as e:  # noqa: BLE001
+            st.error(f"No pude correr el backtest: {e}")
+
+    na = st.session_state.get("na_res")
+    if not na:
+        st.info("Elige la fuente de datos y pulsa «Correr backtest». Puedes empezar con los datos de ejemplo.")
+    elif na["trades"].empty:
+        st.warning("No hubo operaciones. Revisa que haya al menos «días para medir el ruido» + 1 días completos de datos.")
+    else:
+        trades_na, diario_na, reglas_na = na["trades"], na["diario"], na["reglas"]
+        rs = NA.resumen(trades_na, diario_na)
+        if na["fuente"] == "Ejemplo":
+            st.warning("Estás viendo **datos simulados**. Sirven para entender la herramienta; para evaluar la estrategia sube un CSV real del MES o ES.")
+        elif len(diario_na) < 250:
+            st.warning(f"La muestra tiene solo {len(diario_na)} días hábiles. Con menos de ~1 año los resultados son casi pura suerte.")
+        st.caption(f"Muestra: {diario_na['fecha'].min():%d/%m/%Y} a {diario_na['fecha'].max():%d/%m/%Y} · {len(diario_na)} días · "
+                   f"riesgo {na['par'].riesgo_usd:,.0f} USD por trade · slippage {na['par'].slippage_ticks:g} tick(s) por lado.")
+
+        c = st.columns(6)
+        usd = lambda v: f"-${abs(v):,.0f}" if v < 0 else f"${v:,.0f}"
+        c[0].metric("P&L neto", usd(rs['P&L neto (USD)']))
+        c[1].metric("Trades", f"{rs['Trades']:,}", help=f"{rs['Trades por día operado']} por día operado; se operó el {rs['% de días con trade']}% de los días.")
+        c[2].metric("Acierto", f"{rs['Tasa de acierto (%)']}%", help="En momentum lo normal es acertar poco y ganar mucho más de lo que se pierde.")
+        c[3].metric("Profit factor", f"{rs['Profit factor']}", help="Ganancias brutas ÷ pérdidas brutas. Mayor que 1 = gana.")
+        c[4].metric("Sharpe", f"{rs['Sharpe (diario anualizado)']}")
+        c[5].metric("Drawdown máx.", usd(rs['Drawdown máximo (USD)']))
+
+        vista_na = st.segmented_control("Ver", ["Curva", f"Prop firm · {reglas_na.nombre}", "Por periodo y hora", "Ver un día", "Trades"],
+                                        default="Curva", key="vista_na") or "Curva"
+
+        if vista_na == "Curva":
+            fig = go.Figure()
+            eq = diario_na["equity"]
+            fig.add_scatter(x=diario_na["fecha"], y=eq, mode="lines", name="P&L acumulado", line=dict(color=CORAL, width=2.6),
+                            fill="tozeroy", fillcolor="rgba(255,107,91,0.10)",
+                            hovertemplate="%{x|%d %b %Y}<br>P&L acumulado: $%{y:,.0f}<extra></extra>")
+            fig.update_layout(height=380, title=dict(text="P&L acumulado (USD)", font=dict(size=15)), showlegend=False, hovermode="x unified")
+            st.plotly_chart(fig, width="stretch", theme=None)
+            dd = NA.drawdown(diario_na)
+            fig2 = go.Figure(go.Scatter(x=diario_na["fecha"], y=dd, mode="lines", fill="tozeroy", line=dict(color=ACERO, width=2),
+                                        fillcolor="rgba(125,155,209,0.18)", hovertemplate="%{x|%d %b %Y}<br>Drawdown: $%{y:,.0f}<extra></extra>"))
+            fig2.add_hline(y=-reglas_na.mll, line_dash="dash", line_color=CORAL,
+                           annotation_text=f"Pérdida máxima de {reglas_na.nombre}", annotation_font_color=CORAL)
+            fig2.update_layout(height=250, title=dict(text="Caída desde el máximo (USD)", font=dict(size=15)), showlegend=False, hovermode="x unified")
+            st.plotly_chart(fig2, width="stretch", theme=None)
+            with st.expander("Todas las estadísticas"):
+                st.dataframe(pd.DataFrame(rs.items(), columns=["Métrica", "Valor"]).astype({"Valor": str}), hide_index=True, width="stretch")
+            sl = na["saltados"]
+            if sl:
+                st.caption(f"Señales no tomadas: {sl.get('sin_contratos', 0)} porque el stop costaba más que el riesgo permitido "
+                           f"(daba 0 contratos) y {sl.get('stop_muy_lejos', 0)} por stop demasiado lejano.")
+
+        elif vista_na.startswith("Prop firm"):
+            rv, rb = NA.resumir(na["vent"]), NA.resumir(na["boot"])
+            a, b = st.columns(2, gap="large")
+            for col, titulo, sub, rr in ((a, "Ventanas históricas", "Una evaluación que empieza cada día de la muestra", rv),
+                                         (b, "Bootstrap", f"{len(na['boot']):,} trayectorias de 250 días remuestreando días reales".replace(",", "."), rb)):
+                pasa = rr.get("Pasan (%)", 0) or 0
+                falla = rr.get("Fallan (%)", 0) or 0
+                sin = rr.get("Sin terminar (%)", 0) or 0
+                dias_p = rr.get("Días medianos para pasar")
+                col.markdown(f"""<div class="card"><div class="sub">{titulo} · {sub}</div>
+                    <div class="big">{pasa:.0f}%</div><div class="sub" style="margin:0 0 8px">pasan la evaluación</div>
+                    <div class="barra"><div style="width:{max(pasa, 1):.1f}%"></div></div>
+                    <ul><li>Fallan: <b>{falla:.0f}%</b></li><li>Sin terminar: <b>{sin:.0f}%</b></li>
+                    <li>Días medianos para pasar: <b>{'—' if dias_p is None or dias_p != dias_p else f'{dias_p:.0f}'}</b></li></ul></div>""",
+                             unsafe_allow_html=True)
+            st.caption(f"Reglas: meta ${reglas_na.meta:,.0f}, pérdida máxima trailing EOD ${reglas_na.mll:,.0f} (se congela en inicial + "
+                       f"${reglas_na.bloqueo:,.0f}), límite diario {'no tiene' if reglas_na.dll == 0 else f'${reglas_na.dll:,.0f}'}, consistencia "
+                       f"{'no tiene' if reglas_na.consistencia == 0 else f'{reglas_na.consistencia:.0%}'}. La pérdida intradía se mide en los extremos "
+                       "de cada barra de 30 min. Las ventanas históricas se solapan y el bootstrap supone días independientes. "
+                       "Verifica siempre las reglas vigentes de la firma.")
+            mejor = rs.get("Mejor día / P&L total (%)")
+            if mejor == mejor and mejor is not None and mejor > reglas_na.consistencia * 100 > 0:
+                st.warning(f"Tu mejor día es el {mejor:.0f}% del P&L total: la regla de consistencia te va a frenar.")
+            if len(na["boot"]):
+                dist = na["boot"][na["boot"]["resultado"] == "Pasa"]["dias"]
+                if len(dist):
+                    fig = go.Figure(go.Histogram(x=dist, nbinsx=30, marker_color=CORAL, opacity=0.85,
+                                                 hovertemplate="%{x} días: %{y} trayectorias<extra></extra>"))
+                    fig.update_layout(height=280, title=dict(text="¿En cuántos días se pasa? (bootstrap)", font=dict(size=15)),
+                                      xaxis_title="Días hábiles hasta pasar", yaxis_title="Trayectorias", bargap=0.05)
+                    st.plotly_chart(fig, width="stretch", theme=None)
+
+        elif vista_na == "Por periodo y hora":
+            mens = NA.por_periodo(trades_na, "M")
+            fig = go.Figure(go.Bar(x=mens.index.astype(str), y=mens["P&L (USD)"],
+                                   marker_color=np.where(mens["P&L (USD)"] >= 0, CORAL, ACERO),
+                                   hovertemplate="%{x}: $%{y:,.0f}<extra></extra>"))
+            fig.update_layout(height=300, title=dict(text="P&L por mes (USD)", font=dict(size=15)))
+            st.plotly_chart(fig, width="stretch", theme=None)
+            a, b = st.columns(2, gap="large")
+            a.markdown("**Por año**")
+            a.dataframe(NA.por_periodo(trades_na, "Y"), width="stretch")
+            hora = NA.por_hora_entrada(trades_na)
+            b.markdown("**Por hora de entrada (Nueva York)**")
+            b.dataframe(hora, width="stretch")
+
+        elif vista_na == "Ver un día":
+            dias_tr = sorted(trades_na["fecha"].dt.date.unique(), reverse=True)
+            dia = st.selectbox("Día", dias_tr, format_func=lambda d: d.strftime("%d/%m/%Y"))
+            bd = na["bandas"]
+            d = bd[bd["fecha"] == dia].sort_values("k")
+            t = trades_na[trades_na["fecha"].dt.date == dia]
+            fig = go.Figure()
+            fig.add_scatter(x=d["hora_cierre"], y=d["UB"], mode="lines", line=dict(color=ACERO, width=1.5, dash="dash"), name="Banda superior")
+            fig.add_scatter(x=d["hora_cierre"], y=d["LB"], mode="lines", line=dict(color=ACERO, width=1.5, dash="dash"), name="Banda inferior",
+                            fill="tonexty", fillcolor="rgba(125,155,209,0.14)")
+            fig.add_scatter(x=d["hora_cierre"], y=d["vwap"], mode="lines", line=dict(color=CREMA_TENUE, width=1.6, dash="dot"), name="VWAP")
+            fig.add_scatter(x=d["hora_cierre"], y=d["close"], mode="lines+markers", line=dict(color=CORAL, width=2.6),
+                            marker=dict(size=7), name="Precio (cierre 30 min)")
+            for _, tr in t.iterrows():
+                color = CORAL if tr["pnl_usd"] >= 0 else ACERO
+                fig.add_scatter(x=[tr["hora_entrada"]], y=[tr["precio_entrada"]], mode="markers", showlegend=False,
+                                marker=dict(symbol="triangle-up" if tr["lado"] == "Largo" else "triangle-down", size=16, color=CREMA,
+                                            line=dict(color=NAVY, width=1)),
+                                hovertemplate=f"Entrada {tr['lado'].lower()} ×{tr['contratos']}<br>%{{y:,.2f}}<extra></extra>")
+                fig.add_scatter(x=[tr["hora_salida"]], y=[tr["precio_salida"]], mode="markers", showlegend=False,
+                                marker=dict(symbol="x", size=13, color=color),
+                                hovertemplate=f"Salida ({tr['motivo'].lower()})<br>%{{y:,.2f}} · {tr['pnl_usd']:+,.0f} USD<extra></extra>")
+            fig.update_layout(height=440, hovermode="x unified", legend=dict(orientation="h", y=-0.15),
+                              title=dict(text="La zona sombreada es el ruido: solo se entra cuando el precio la rompe", font=dict(size=14)))
+            st.plotly_chart(fig, width="stretch", theme=None)
+            st.dataframe(t, hide_index=True, width="stretch")
+
+        else:
+            st.dataframe(trades_na.sort_values(["fecha", "hora_entrada"], ascending=False), hide_index=True, width="stretch",
+                         column_config={"fecha": st.column_config.DateColumn("Fecha", format="DD/MM/YYYY"),
+                                        "pnl_usd": st.column_config.NumberColumn("P&L (USD)", format="%.2f")})
+            b1, b2 = st.columns(2)
+            b1.download_button("Descargar trades (CSV)", trades_na.to_csv(index=False).encode("utf-8"), "trades_noise_area_mes.csv", "text/csv")
+            b2.download_button("Descargar P&L diario (CSV)", diario_na.to_csv(index=False).encode("utf-8"), "diario_noise_area_mes.csv", "text/csv")
+
+        st.caption("Resultados hipotéticos de un backtest: no garantizan resultados futuros. Las decisiones se toman con barras de 30 min, "
+                   "el slippage y las comisiones son fijos, y no se modelan los vencimientos (usa una serie continua ajustada). "
+                   "No es asesoría financiera.")
 
 # ---------------------------------------------------------------------------
 # ¿Cómo funciona?
