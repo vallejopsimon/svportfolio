@@ -6,6 +6,7 @@ Ejecutar:  streamlit run app.py
 from __future__ import annotations
 
 import html
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -22,6 +23,7 @@ import fuentes as F
 import motor as M
 import seguimiento as S
 import montecarlo as MC
+import perfil as P
 try:  # módulo de day trading: si falta noise_area.py, el resto de la app sigue funcionando
     import noise_area as NA
 except ModuleNotFoundError:
@@ -260,6 +262,20 @@ div[data-testid="stMetric"] { animation: subir .6s cubic-bezier(.2,.7,.2,1) both
 .na-in circle { fill: #F4EDE0; stroke: #FF6B5B; stroke-width: 3; } .na-out circle { fill: #FF6B5B; stroke: #F4EDE0; stroke-width: 2; }
 .na-in text, .na-out text { fill: #F4EDE0; font: 600 13px Inter, sans-serif; }
 @media (prefers-reduced-motion: reduce) { .na-zona, .na-borde, .na-tz, .na-precio, .na-stop, .na-in, .na-out, .na-st { animation: none !important; opacity: 1; stroke-dashoffset: 0; } }
+/* ficha y noticias de la empresa */
+.card.ficha { padding: 6px 18px; height: auto; }
+.ficha .dato { display: flex; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px solid rgba(244,237,224,0.10); font-size: 14px; }
+.ficha .dato:last-child { border-bottom: 0; }
+.stApp .ficha .dato span { color: #9AA3B8; } .stApp .ficha .dato b { color: #F4EDE0; font-weight: 600; text-align: right; }
+.stApp .ficha a { color: #FF9C8F; text-decoration: none; } .stApp .ficha a:hover { text-decoration: underline; }
+.noticia { display: block; padding: 13px 16px; margin-bottom: 10px; border-radius: 14px;
+  background: rgba(29,46,82,0.5); border: 1px solid rgba(244,237,224,0.12); border-left: 3px solid #FF6B5B;
+  transition: border-color .2s, transform .2s, background .2s; animation: subir .6s cubic-bezier(.2,.7,.2,1) both; }
+.noticia:hover { transform: translateX(3px); border-color: rgba(255,107,91,0.6); background: rgba(29,46,82,0.75); }
+.stApp .noticia .titular { display: block; color: #F4EDE0; font-size: 15px; font-weight: 500; line-height: 1.35; text-decoration: none; }
+.stApp .noticia .titular:hover { color: #FF9C8F; text-decoration: underline; }
+.stApp .noticia .meta { color: #9AA3B8; font-size: 12.5px; margin-top: 5px; }
+.stApp .noticia .en { color: #AFC2E6; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
 </style>
 """, unsafe_allow_html=True)
@@ -603,6 +619,48 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
+# Perfil de la empresa y noticias
+# ---------------------------------------------------------------------------
+NOMBRE_EMPRESA = {
+    "CIBEST.CL": "Grupo Cibest", "PFCIBEST.CL": "Grupo Cibest", "CIB": "Grupo Cibest", "GEB.CL": "Grupo Energía Bogotá",
+    "CELSIA.CL": "Celsia", "MINEROS.CL": "Mineros S.A.", "MSA.TO": "Mineros S.A.", "ECOPETROL.CL": "Ecopetrol", "EC": "Ecopetrol",
+    "ISA.CL": "Interconexión Eléctrica", "GRUPOSURA.CL": "Grupo Sura", "GRUPOARGOS.CL": "Grupo Argos",
+    "CEMARGOS.CL": "Cementos Argos", "PFAVAL.CL": "Grupo Aval", "AVAL": "Grupo Aval", "BOGOTA.CL": "Banco de Bogotá",
+    "PROMIGAS.CL": "Promigas", "CORFICOLCF.CL": "Corficolombiana", "PFDAVVNDA.CL": "Davivienda", "TERPEL.CL": "Terpel",
+    "BVC.CL": "Bolsa de Valores de Colombia", "TGLS": "Tecnoglass",
+}
+
+
+@st.cache_data(ttl=6 * 3600, show_spinner=False)
+def obtener_perfil(t: str, nombre: str) -> dict:
+    out = {}
+    try:  # Yahoo (puede estar bloqueado en la nube)
+        out.update(P.desde_yahoo(yf.Ticker(t).info or {}))
+    except Exception:  # noqa: BLE001
+        pass
+    try:  # Wikipedia + Wikidata
+        w = P.wikipedia(NOMBRE_EMPRESA.get(t, nombre))
+        out.update(w)
+        if w.get("qid"):
+            for k, v in P.wikidata(w["qid"]).items():
+                out.setdefault(k, v)  # Yahoo tiene prioridad (sus directivos están más al día)
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def obtener_noticias(t: str, nombre: str) -> list[dict]:
+    listas = []
+    for fn in (lambda: P.noticias_google(NOMBRE_EMPRESA.get(t, nombre)), lambda: P.noticias_yahoo(t, F.http_json)):
+        try:
+            listas.append(fn())
+        except Exception:  # noqa: BLE001
+            pass
+    return P.combinar_noticias(*listas, n=10)
+
+
+# ---------------------------------------------------------------------------
 # Encuesta de perfil de inversionista
 # ---------------------------------------------------------------------------
 PREGUNTAS = [
@@ -861,6 +919,52 @@ with tab2:
                                    help="Por defecto: empresas del mismo sector que cargaste en el paso 1.")
         val = M.valoracion_multiplos(df, sel, pares) if pares else pd.DataFrame()
 
+        # --- Sobre la empresa ---
+        with st.spinner("Buscando información de la empresa…"):
+            pf = obtener_perfil(sel, str(fila["Nombre"]))
+        st.markdown(f"### Sobre {esc(NOMBRE_EMPRESA.get(sel, fila['Nombre']))}")
+        s1, s2 = st.columns([3, 2], gap="large")
+        with s1:
+            desc = pf.get("resumen_es")
+            if desc:
+                parrafos = [p for p in desc.split("\n") if p.strip()]
+                corto = " ".join(parrafos[:2])
+                if len(corto) > 900:
+                    corto = corto[:900].rsplit(" ", 1)[0] + "…"
+                st.markdown(f'<div class="explica azul">{esc(corto)}</div>', unsafe_allow_html=True)
+                if pf.get("wiki_url"):
+                    st.caption(f"Fuente: [Wikipedia · {esc(pf.get('wiki_titulo', ''))}]({pf['wiki_url']})")
+            elif pf.get("resumen_en"):
+                st.markdown(f'<div class="explica azul">{esc(pf["resumen_en"][:900])}</div>', unsafe_allow_html=True)
+                st.caption("Fuente: Yahoo Finance (en inglés)")
+            else:
+                st.info("No encontré una descripción de esta empresa en Wikipedia ni en Yahoo.")
+            if pf.get("resumen_es") and pf.get("resumen_en"):
+                with st.expander("Descripción del negocio según Yahoo Finance (en inglés)"):
+                    st.write(pf["resumen_en"])
+        with s2:
+            datos_e = [
+                ("CEO", pf.get("ceo")),
+                ("Sector", pf.get("sector") or P.SECTOR_ES.get(fila["Sector"], fila["Sector"])),
+                ("Industria", pf.get("industria") or (fila["Industria"] or None)),
+                ("Sede", pf.get("sede")),
+                ("Fundación", pf.get("fundacion")),
+                ("Empleados", f"{pf['empleados']:,}".replace(",", ".") if pf.get("empleados") else None),
+                ("Sitio web", f'<a href="{esc(pf["sitio"])}" target="_blank">{esc(re.sub(r"^https?://(www\.)?", "", pf["sitio"]).rstrip("/"))}</a>'
+                 if pf.get("sitio") else None),
+                ("Cotiza en", f"{esc(sel)} · {esc(fila['Moneda'])}"),
+            ]
+            filas_html = "".join(f'<div class="dato"><span>{k}</span><b>{v if k == "Sitio web" else esc(v)}</b></div>'
+                                 for k, v in datos_e if v not in (None, "", "Sin sector"))
+            st.markdown(f'<div class="card ficha">{filas_html}</div>', unsafe_allow_html=True)
+        if pf.get("directivos"):
+            with st.expander(f"Equipo directivo ({len(pf['directivos'])})"):
+                st.dataframe(pd.DataFrame(pf["directivos"]), hide_index=True, width="stretch",
+                             column_config={"Edad": st.column_config.NumberColumn(format="%d")})
+        if pf.get("ceo") and not pf.get("directivos"):
+            st.caption("El CEO viene de Wikidata; si hubo un cambio reciente, puede no estar actualizado.")
+
+        st.markdown("### Así se ve frente a sus pares")
         izq, der = st.columns([2, 3], gap="large")
         with izq:
             if len(val):
@@ -922,6 +1026,22 @@ with tab2:
                 lectura = "✅ Mejor que sus pares" if bien else "⚠️ Peor que sus pares"
             tabla.append({"Indicador": c, "Qué significa": desc, sel: fmt(v, pct), "Pares (mediana)": fmt(m, pct), "Lectura": lectura})
         st.dataframe(pd.DataFrame(tabla), hide_index=True, width="stretch")
+
+        st.markdown("### Noticias recientes")
+        with st.spinner("Buscando noticias…"):
+            notas = obtener_noticias(sel, str(fila["Nombre"]))
+        if not notas:
+            st.info("No encontré noticias recientes de esta empresa.")
+        else:
+            cols_n = st.columns(2, gap="large")
+            for i, nt in enumerate(notas):
+                etiqueta_idioma = ' · <span class="en">EN</span>' if nt.get("idioma") == "en" else ""
+                cols_n[i % 2].markdown(
+                    f'<div class="noticia" style="animation-delay:{i * 0.05:.2f}s">'
+                    f'<a class="titular" href="{esc(nt["url"])}" target="_blank" rel="noopener">{esc(nt["titulo"])}</a>'
+                    f'<div class="meta">{esc(nt.get("fuente") or "")}{" · " + P.hace(nt.get("fecha")) if nt.get("fecha") else ""}{etiqueta_idioma}</div></div>',
+                    unsafe_allow_html=True)
+            st.caption("Noticias de Google Noticias y Yahoo Finance. Los titulares abren la fuente original.")
 
 # ---------------------------------------------------------------------------
 # Paso 3: Portafolio
